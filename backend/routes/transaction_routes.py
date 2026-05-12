@@ -1,0 +1,339 @@
+from flask import Blueprint, jsonify, request
+from db import get_db_connection
+from datetime import datetime
+
+transaction_bp = Blueprint("transaction_bp", __name__)
+
+
+@transaction_bp.route("/", methods=["GET"])
+def get_transactions():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            t.id,
+            t.invoice_code,
+            t.total_price,
+            t.payment_method,
+            t.payment_status,
+            t.created_at,
+            ti.product_id,
+            p.name,
+            ti.quantity,
+            ti.price,
+            ti.subtotal
+        FROM transactions t
+        LEFT JOIN transaction_items ti
+            ON t.id = ti.transaction_id
+        LEFT JOIN products p
+            ON ti.product_id = p.id
+        ORDER BY t.id DESC
+    """)
+
+    rows = cur.fetchall()
+    transactions_dict = {}
+
+    for row in rows:
+        transaction_id = row[0]
+
+        if transaction_id not in transactions_dict:
+            transactions_dict[transaction_id] = {
+                "id": row[0],
+                "invoice_code": row[1],
+                "total_price": row[2],
+                "payment_method": row[3],
+                "payment_status": row[4],
+                "created_at": str(row[5]),
+                "items": []
+            }
+
+        if row[6] is not None:
+            transactions_dict[transaction_id]["items"].append({
+                "product_id": row[6],
+                "product_name": row[7],
+                "quantity": row[8],
+                "price": row[9],
+                "subtotal": row[10]
+            })
+
+    cur.close()
+    conn.close()
+
+    return jsonify(list(transactions_dict.values()))
+
+
+@transaction_bp.route("/daily", methods=["GET"])
+def get_daily_transactions():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            DATE(created_at) AS date,
+            COUNT(*) AS total_transactions,
+            COALESCE(SUM(total_price), 0) AS total_income
+        FROM transactions
+        WHERE payment_status = 'PAID'
+        GROUP BY DATE(created_at)
+        ORDER BY date DESC
+    """)
+
+    rows = cur.fetchall()
+
+    result = []
+    for row in rows:
+        result.append({
+            "date": str(row[0]),
+            "total_transactions": row[1],
+            "total_income": row[2]
+        })
+
+    cur.close()
+    conn.close()
+
+    return jsonify(result)
+
+
+@transaction_bp.route("/monthly", methods=["GET"])
+def get_monthly_transactions():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            TO_CHAR(created_at, 'YYYY-MM') AS month,
+            COUNT(*) AS total_transactions,
+            COALESCE(SUM(total_price), 0) AS total_income
+        FROM transactions
+        WHERE payment_status = 'PAID'
+        GROUP BY TO_CHAR(created_at, 'YYYY-MM')
+        ORDER BY month DESC
+    """)
+
+    rows = cur.fetchall()
+
+    result = []
+    for row in rows:
+        result.append({
+            "month": row[0],
+            "total_transactions": row[1],
+            "total_income": row[2]
+        })
+
+    cur.close()
+    conn.close()
+
+    return jsonify(result)
+
+
+@transaction_bp.route("/yearly", methods=["GET"])
+def get_yearly_transactions():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            TO_CHAR(created_at, 'YYYY') AS year,
+            COUNT(*) AS total_transactions,
+            COALESCE(SUM(total_price), 0) AS total_income
+        FROM transactions
+        WHERE payment_status = 'PAID'
+        GROUP BY TO_CHAR(created_at, 'YYYY')
+        ORDER BY year DESC
+    """)
+
+    rows = cur.fetchall()
+
+    result = []
+    for row in rows:
+        result.append({
+            "year": row[0],
+            "total_transactions": row[1],
+            "total_income": row[2]
+        })
+
+    cur.close()
+    conn.close()
+
+    return jsonify(result)
+
+
+@transaction_bp.route("/", methods=["POST"])
+def create_transaction():
+    data = request.get_json()
+
+    payment_method = data.get("payment_method", "QRIS")
+    payment_status = data.get("payment_status", "PENDING")
+    items = data.get("items")
+
+    if not items:
+        return jsonify({
+            "message": "Item transaksi tidak boleh kosong"
+        }), 400
+
+    invoice_code = "INV-" + datetime.now().strftime("%Y%m%d%H%M%S")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    total_price = 0
+    transaction_items = []
+
+    for item in items:
+        product_id = item["product_id"]
+        quantity = item["quantity"]
+
+        cur.execute("""
+            SELECT price
+            FROM products
+            WHERE id = %s
+        """, (product_id,))
+
+        product = cur.fetchone()
+
+        if not product:
+            cur.close()
+            conn.close()
+            return jsonify({
+                "message": f"Produk dengan id {product_id} tidak ditemukan"
+            }), 404
+
+        price = product[0]
+        subtotal = price * quantity
+        total_price += subtotal
+
+        transaction_items.append({
+            "product_id": product_id,
+            "quantity": quantity,
+            "price": price,
+            "subtotal": subtotal
+        })
+
+    cur.execute("""
+        INSERT INTO transactions
+        (
+            invoice_code,
+            total_price,
+            payment_method,
+            payment_status
+        )
+        VALUES (%s, %s, %s, %s)
+        RETURNING id
+    """, (
+        invoice_code,
+        total_price,
+        payment_method,
+        payment_status
+    ))
+
+    transaction_id = cur.fetchone()[0]
+
+    for item in transaction_items:
+        cur.execute("""
+            INSERT INTO transaction_items
+            (
+                transaction_id,
+                product_id,
+                quantity,
+                price,
+                subtotal
+            )
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            transaction_id,
+            item["product_id"],
+            item["quantity"],
+            item["price"],
+            item["subtotal"]
+        ))
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        "message": "Transaksi berhasil dibuat",
+        "transaction_id": transaction_id,
+        "invoice_code": invoice_code,
+        "total_price": total_price,
+        "payment_method": payment_method,
+        "payment_status": payment_status
+    }), 201
+
+
+@transaction_bp.route("/<int:id>/pay", methods=["PUT"])
+def pay_transaction(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE transactions
+        SET payment_status = 'PAID'
+        WHERE id = %s
+    """, (id,))
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        "message": "Pembayaran berhasil"
+    })
+    
+@transaction_bp.route("/dashboard", methods=["GET"])
+def dashboard_summary():
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Total income
+    cur.execute("""
+        SELECT COALESCE(SUM(total_price), 0)
+        FROM transactions
+        WHERE payment_status = 'PAID'
+    """)
+
+    total_income = cur.fetchone()[0]
+
+    # Total transaksi
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM transactions
+        WHERE payment_status = 'PAID'
+    """)
+
+    total_transactions = cur.fetchone()[0]
+
+    # Total item terjual
+    cur.execute("""
+        SELECT COALESCE(SUM(quantity), 0)
+        FROM transaction_items
+    """)
+
+    total_items_sold = cur.fetchone()[0]
+
+    # Last transaction
+    cur.execute("""
+        SELECT invoice_code, total_price
+        FROM transactions
+        ORDER BY id DESC
+        LIMIT 1
+    """)
+
+    last_transaction = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        "total_income": total_income,
+        "total_transactions": total_transactions,
+        "total_items_sold": total_items_sold,
+        "last_transaction": {
+            "invoice_code": last_transaction[0] if last_transaction else "-",
+            "total_price": last_transaction[1] if last_transaction else 0
+        }
+    })
