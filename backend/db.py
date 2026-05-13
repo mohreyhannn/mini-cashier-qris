@@ -4,6 +4,7 @@ from config import DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_PORT
 
 
 def get_db_connection():
+
     database_url = os.getenv("DATABASE_URL")
 
     if database_url:
