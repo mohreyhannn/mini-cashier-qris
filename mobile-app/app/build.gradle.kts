@@ -57,6 +57,14 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     // QR Generator
     implementation("com.google.zxing:core:3.5.3")
+    //BOTTOM NAVIGATION
+    implementation("androidx.navigation:navigation-compose:2.8.0")
+    //ICON
+    implementation("androidx.compose.material:material-icons-extended")
+    //DEPENDENCY
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    //SPLASH SCREEN
+    implementation("androidx.core:core-splashscreen:1.0.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

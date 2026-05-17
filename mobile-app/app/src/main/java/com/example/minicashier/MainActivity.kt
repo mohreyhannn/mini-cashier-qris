@@ -17,9 +17,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.compose.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.example.minicashier.ui.theme.MiniCashierTheme
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.launch
+
+
+sealed class Screen(val route: String) {
+    object Home : Screen("home")
+    object History : Screen("history")
+    object Admin : Screen("admin")
+}
 
 data class CartItem(
     val product: Product,
@@ -27,16 +46,16 @@ data class CartItem(
 )
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        setContent {
-            AppEntry()
+        override fun onCreate(savedInstanceState: Bundle?) {
+            installSplashScreen()
+            super.onCreate(savedInstanceState)
+            setContent {
+                MiniCashierTheme {
+                    AppEntry()
+                }
+            }
         }
     }
-}
-
-
 
 @Composable
 fun ProductScreen(
@@ -124,8 +143,15 @@ fun ProductScreen(
                 searchQuery = it
             },
             label = {
-                Text("Search produk...")
+                Text("Cari menu...")
             },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search"
+                )
+            },
+            shape = RoundedCornerShape(20.dp),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -412,7 +438,7 @@ fun AdminProductForm(
             .fillMaxWidth()
             .padding(bottom = 16.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp    )) {
             Text(
                 text = if (editingProductId == null)
                     "Admin Tambah Produk"
@@ -483,11 +509,34 @@ fun AdminProductForm(
 @Composable
 fun AppEntry() {
 
+    val context = LocalContext.current
+    val sessionManager = remember {
+        SessionManager(context)
+    }
+
     var loggedInUser by remember {
         mutableStateOf<UserData?>(null)
     }
 
-    if (loggedInUser == null) {
+    var isCheckingSession by remember {
+        mutableStateOf(true)
+    }
+
+    LaunchedEffect(Unit) {
+        loggedInUser = sessionManager.getUser()
+        isCheckingSession = false
+    }
+
+    if (isCheckingSession) {
+
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Memuat session...")
+        }
+
+    } else if (loggedInUser == null) {
 
         LoginScreen(
             onLoginSuccess = { user ->
@@ -497,9 +546,121 @@ fun AppEntry() {
 
     } else {
 
-        ProductScreen(
-            user = loggedInUser!!
+        MainNavigation(
+            user = loggedInUser!!,
+            onLogout = {
+                loggedInUser = null
+            }
         )
+    }
+}
+
+@Composable
+fun MainNavigation(
+    user: UserData,
+    onLogout: () -> Unit
+){
+
+    val navController = rememberNavController()
+    val context = LocalContext.current
+    val sessionManager = remember {
+        SessionManager(context)
+    }
+    val scope = rememberCoroutineScope()
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+
+                NavigationBarItem(
+                    selected = false,
+                    onClick = {
+                        navController.navigate("home")
+                    },
+                    label = {
+                        Text("Home")
+                    },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = "Home"
+                        )
+                    }
+                )
+
+                NavigationBarItem(
+                    selected = false,
+                    onClick = {
+                        navController.navigate("history")
+                    },
+                    label = {
+                        Text("History")
+                    },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = "History"
+                        )
+                    }
+                )
+
+                if (user.role == "ADMIN") {
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = {
+                            navController.navigate("admin")
+                        },
+                        label = {
+                            Text("Admin")
+                        },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.AdminPanelSettings,
+                                contentDescription = "Admin"
+                            )
+                        }
+                    )
+                }
+
+                NavigationBarItem(
+                    selected = false,
+                    onClick = {
+                        scope.launch {
+                            sessionManager.logout()
+                            onLogout()
+                        }
+                    },
+                    label = {
+                        Text("Logout")
+                    },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = "Logout"
+                        )
+                    }
+                )
+            }
+        }
+    ) { paddingValues ->
+
+        NavHost(
+            navController = navController,
+            startDestination = "home",
+            modifier = Modifier.padding(paddingValues)
+        ) {
+            composable("home") {
+                ProductScreen(user = user)
+            }
+
+            composable("history") {
+                TransactionHistoryScreen()
+            }
+
+            composable("admin") {
+                AdminScreen()
+            }
+        }
     }
 }
 
@@ -513,6 +674,10 @@ fun LoginScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val sessionManager = remember {
+        SessionManager(context)
+    }
 
     Column(
         modifier = Modifier
@@ -569,6 +734,11 @@ fun LoginScreen(
                                 )
                             )
 
+                        sessionManager.saveLogin(
+                            username = response.user.username,
+                            role = response.user.role
+                        )
+
                         onLoginSuccess(response.user)
 
                     } catch (e: Exception) {
@@ -603,16 +773,29 @@ fun ProductCard(
     onEditProduct: () -> Unit,
     onDeleteProduct: () -> Unit
 ) {
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 8.dp)
+            .padding(vertical = 8.dp),
+
+        shape = RoundedCornerShape(20.dp),
+
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 8.dp
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+
             Text(
                 text = product.name,
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleLarge
             )
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
                 text = product.category,
@@ -620,15 +803,24 @@ fun ProductCard(
                 color = MaterialTheme.colorScheme.primary
             )
 
-            Text(
-                text = "Rp ${product.price}",
-                style = MaterialTheme.typography.titleSmall
-            )
-
             Spacer(modifier = Modifier.height(8.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onAddToCart) {
+            Text(
+                text = "Rp ${product.price}",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+
+                Button(
+                    onClick = onAddToCart,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("+ Tambah")
                 }
 
@@ -648,6 +840,30 @@ fun ProductCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun TransactionHistoryScreen() {
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+
+        Text("History Screen")
+    }
+}
+
+@Composable
+fun AdminScreen() {
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+
+        Text("Admin Screen")
     }
 }
 
