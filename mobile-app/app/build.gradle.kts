@@ -65,6 +65,8 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     //SPLASH SCREEN
     implementation("androidx.core:core-splashscreen:1.0.1")
+    //ANALYSTICS CHART
+    implementation("io.github.ehsannarmani:compose-charts:0.0.13")
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
