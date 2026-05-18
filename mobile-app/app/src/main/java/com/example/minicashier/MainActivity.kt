@@ -33,12 +33,20 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import android.graphics.Paint
+import android.graphics.pdf.PdfDocument
+import android.os.Environment
 import com.example.minicashier.ui.theme.MiniCashierTheme
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
+import java.io.File
+import java.io.FileOutputStream
 import androidx.compose.foundation.background
 
 
@@ -84,6 +92,8 @@ fun ProductScreen(
     var currentInvoiceCode by remember { mutableStateOf<String?>(null) }
     var currentTotalPrice by remember { mutableStateOf<Int?>(null) }
     var paymentMessage by remember { mutableStateOf<String?>(null) }
+    var receiptInvoiceCode by remember { mutableStateOf<String?>(null) }
+    var receiptTotalPrice by remember { mutableStateOf<Int?>(null) }
 
     var dashboard by remember { mutableStateOf<DashboardResponse?>(null) }
 
@@ -484,6 +494,8 @@ fun ProductScreen(
                                     )
 
                                     paymentMessage = response.message
+                                    receiptInvoiceCode = currentInvoiceCode
+                                    receiptTotalPrice = currentTotalPrice
                                     currentTransactionId = null
                                     dashboard = RetrofitClient.api.getDashboard()
 
@@ -501,6 +513,12 @@ fun ProductScreen(
                     Text(
                         text = it,
                         color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                if (receiptInvoiceCode != null) {
+                    ReceiptCard(
+                        invoiceCode = receiptInvoiceCode,
+                        totalPrice = receiptTotalPrice
                     )
                 }
             }
@@ -901,7 +919,7 @@ fun MainNavigation(
             }
 
             composable("history") {
-                TransactionHistoryScreen()
+                TransactionHistoryScreen(user = user)
             }
 
             composable("admin") {
@@ -1091,14 +1109,15 @@ fun ProductCard(
 }
 
 @Composable
-fun TransactionHistoryScreen() {
-
+fun TransactionHistoryScreen(
+    user: UserData
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        HistoryScreen()
+        HistoryScreen(user = user)
     }
 }
 
@@ -1349,6 +1368,103 @@ fun AdminManagementContent(
 }
 
 @Composable
+fun ReceiptCard(
+    invoiceCode: String?,
+    totalPrice: Int?
+) {
+    val context = LocalContext.current
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp)
+        ) {
+            Text(
+                text = "Struk Pembayaran",
+                style = MaterialTheme.typography.headlineSmall
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text("Mini Cashier QRIS")
+            Text("Invoice: ${invoiceCode ?: "-"}")
+            Text("Status: Berhasil Dibayar")
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Divider()
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Total: ${formatRupiah(totalPrice ?: 0)}",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    saveReceiptPdf(
+                        invoiceCode = invoiceCode ?: "-",
+                        totalPrice = totalPrice ?: 0
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Simpan Struk PDF")
+            }
+        }
+    }
+}
+
+fun saveReceiptPdf(
+    invoiceCode: String,
+    totalPrice: Int
+) {
+    val pdfDocument = PdfDocument()
+    val pageInfo = PdfDocument.PageInfo.Builder(300, 500, 1).create()
+    val page = pdfDocument.startPage(pageInfo)
+
+    val canvas = page.canvas
+    val paint = Paint()
+
+    paint.textSize = 18f
+    paint.isFakeBoldText = true
+    canvas.drawText("Mini Cashier QRIS", 40f, 60f, paint)
+
+    paint.textSize = 14f
+    paint.isFakeBoldText = false
+    canvas.drawText("Struk Pembayaran", 40f, 95f, paint)
+    canvas.drawText("Invoice: $invoiceCode", 40f, 130f, paint)
+    canvas.drawText("Status: Berhasil Dibayar", 40f, 165f, paint)
+
+    paint.isFakeBoldText = true
+    canvas.drawText("Total: ${formatRupiah(totalPrice)}", 40f, 215f, paint)
+
+    paint.isFakeBoldText = false
+    paint.textSize = 12f
+    canvas.drawText("Terima kasih sudah berbelanja", 40f, 280f, paint)
+
+    pdfDocument.finishPage(page)
+
+    val downloadsDir =
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+
+    val file = File(
+        downloadsDir,
+        "struk_$invoiceCode.pdf"
+    )
+
+    pdfDocument.writeTo(FileOutputStream(file))
+    pdfDocument.close()
+}
+
+@Composable
 fun PaymentCard(
     invoiceCode: String?,
     totalPrice: Int?,
@@ -1413,136 +1529,128 @@ fun AnalyticsBarChart(
     title: String,
     data: List<Pair<String, Int>>
 ) {
-    val safeData = data.filter { it.second > 0 }
-    val maxValue = safeData.maxOfOrNull { it.second } ?: 1
-    val totalIncome = safeData.sumOf { it.second }
+    var showChart by remember {
+        mutableStateOf(false)
+    }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 16.dp),
-        shape = RoundedCornerShape(26.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+    LaunchedEffect(Unit) {
+        showChart = true
+    }
+
+    AnimatedVisibility(
+        visible = showChart,
+        enter = fadeIn() + slideInVertically(
+            initialOffsetY = { it / 3 }
         )
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp)
+        val safeData = data.filter { it.second > 0 }
+        val maxValue = safeData.maxOfOrNull { it.second } ?: 1
+        val totalIncome = safeData.sumOf { it.second }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            shape = RoundedCornerShape(26.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-
-                    Text(
-                        text = "Ringkasan income periode ini",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Column(
-                        modifier = Modifier.padding(
-                            horizontal = 14.dp,
-                            vertical = 10.dp
-                        ),
-                        horizontalAlignment = Alignment.End
-                    ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(title, style = MaterialTheme.typography.titleLarge)
                         Text(
-                            text = "Total",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-
-                        Text(
-                            text = formatRupiah(totalIncome),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
+                            "Ringkasan income periode ini",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                }
-            }
 
-            Spacer(modifier = Modifier.height(18.dp))
-
-            if (safeData.isEmpty()) {
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Belum ada data transaksi")
-                }
-
-            } else {
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(190.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    safeData.forEach { item ->
-
-                        val percentage =
-                            item.second.toFloat() / maxValue.toFloat()
-
-                        val barHeight =
-                            (percentage * 105).dp.coerceAtLeast(42.dp)
-
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    ) {
                         Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Bottom
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalAlignment = Alignment.End
                         ) {
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            Text("Total", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                formatRupiah(totalIncome),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                if (safeData.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Belum ada data transaksi")
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(190.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        safeData.forEach { item ->
+                            val percentage = item.second.toFloat() / maxValue.toFloat()
+                            val barHeight = (percentage * 105).dp.coerceAtLeast(42.dp)
+
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Bottom
                             ) {
-                                Text(
-                                    text = formatRupiah(item.second),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(
-                                        horizontal = 10.dp,
-                                        vertical = 4.dp
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                ) {
+                                    Text(
+                                        text = formatRupiah(item.second),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Box(
+                                    modifier = Modifier
+                                        .width(72.dp)
+                                        .height(barHeight)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.primary,
+                                            shape = RoundedCornerShape(18.dp)
+                                        )
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = formatChartDate(item.first),
+                                    style = MaterialTheme.typography.bodySmall
                                 )
                             }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Box(
-                                modifier = Modifier
-                                    .width(72.dp)
-                                    .height(barHeight)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.primary,
-                                        shape = RoundedCornerShape(18.dp)
-                                    )
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = formatChartDate(item.first),
-                                style = MaterialTheme.typography.bodySmall
-                            )
                         }
                     }
                 }
@@ -1552,7 +1660,9 @@ fun AnalyticsBarChart(
 }
 
 @Composable
-fun HistoryScreen() {
+fun HistoryScreen(
+    user: UserData
+) {
     val scope = rememberCoroutineScope()
 
     var selectedTab by remember { mutableStateOf(0) }
@@ -1561,6 +1671,8 @@ fun HistoryScreen() {
     var dailyReports by remember { mutableStateOf<List<DailyReportResponse>>(emptyList()) }
     var monthlyReports by remember { mutableStateOf<List<MonthlyReportResponse>>(emptyList()) }
     var yearlyReports by remember { mutableStateOf<List<YearlyReportResponse>>(emptyList()) }
+
+    var transactions by remember { mutableStateOf<List<TransactionData>>(emptyList()) }
 
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1571,6 +1683,8 @@ fun HistoryScreen() {
             error = null
 
             try {
+                transactions = RetrofitClient.api.getTransactions()
+
                 when (tabIndex) {
                     0 -> dailyReports = RetrofitClient.api.getDailyReports()
                     1 -> monthlyReports = RetrofitClient.api.getMonthlyReports()
@@ -1600,57 +1714,46 @@ fun HistoryScreen() {
         }
     }
 
+    fun filteredTransactions(): List<TransactionData> {
+        return transactions
+            .filter { it.payment_status == "PAID" }
+            .filter { transaction ->
+                when (selectedTab) {
+                    0 -> {
+                        dailyReports.any { report ->
+                            transaction.created_at.startsWith(report.date)
+                        }
+                    }
+
+                    1 -> {
+                        monthlyReports.any { report ->
+                            transaction.created_at.startsWith(report.month)
+                        }
+                    }
+
+                    else -> {
+                        yearlyReports.any { report ->
+                            transaction.created_at.startsWith(report.year.toString())
+                        }
+                    }
+                }
+            }
+    }
+
     @Composable
-    fun ReportListSection(
+    fun TransactionListSection(
         modifier: Modifier = Modifier
     ) {
         Column(
-            modifier = modifier
-                .verticalScroll(rememberScrollState())
+            modifier = modifier.verticalScroll(rememberScrollState())
         ) {
             when {
                 loading -> Text("Memuat riwayat...")
                 error != null -> Text("Error: $error")
-
-                selectedTab == 0 -> {
-                    if (dailyReports.isEmpty()) {
-                        Text("Belum ada transaksi harian")
-                    } else {
-                        dailyReports.forEach { item ->
-                            ReportCard(
-                                title = "Tanggal: ${item.date}",
-                                transactions = item.total_transactions,
-                                income = item.total_income
-                            )
-                        }
-                    }
-                }
-
-                selectedTab == 1 -> {
-                    if (monthlyReports.isEmpty()) {
-                        Text("Belum ada transaksi bulanan")
-                    } else {
-                        monthlyReports.forEach { item ->
-                            ReportCard(
-                                title = "Bulan: ${item.month}",
-                                transactions = item.total_transactions,
-                                income = item.total_income
-                            )
-                        }
-                    }
-                }
-
-                selectedTab == 2 -> {
-                    if (yearlyReports.isEmpty()) {
-                        Text("Belum ada transaksi tahunan")
-                    } else {
-                        yearlyReports.forEach { item ->
-                            ReportCard(
-                                title = "Tahun: ${item.year}",
-                                transactions = item.total_transactions,
-                                income = item.total_income
-                            )
-                        }
+                filteredTransactions().isEmpty() -> Text("Belum ada transaksi")
+                else -> {
+                    filteredTransactions().forEach { transaction ->
+                        TransactionDetailCard(transaction = transaction)
                     }
                 }
             }
@@ -1667,14 +1770,12 @@ fun HistoryScreen() {
         val isWide = maxWidth > 700.dp
 
         if (isWide) {
-
             Row(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
@@ -1685,7 +1786,7 @@ fun HistoryScreen() {
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    ReportListSection(
+                    TransactionListSection(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
@@ -1717,7 +1818,7 @@ fun HistoryScreen() {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    if (!loading && error == null) {
+                    if (user.role == "ADMIN" && !loading && error == null) {
                         AnalyticsBarChart(
                             title = currentChartTitle(),
                             data = currentChartData()
@@ -1725,15 +1826,15 @@ fun HistoryScreen() {
                     }
                 }
             }
-
         } else {
-
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
+                modifier = Modifier.fillMaxSize()
             ) {
                 Text(
-                    text = "Analytics Center",
+                    text = if (user.role == "ADMIN")
+                        "Analytics Center"
+                    else
+                        "Riwayat Transaksi",
                     style = MaterialTheme.typography.headlineMedium
                 )
 
@@ -1752,13 +1853,15 @@ fun HistoryScreen() {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                if (user.role == "ADMIN") {
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                if (!loading && error == null) {
-                    AnalyticsBarChart(
-                        title = currentChartTitle(),
-                        data = currentChartData()
-                    )
+                    if (!loading && error == null) {
+                        AnalyticsBarChart(
+                            title = currentChartTitle(),
+                            data = currentChartData()
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -1770,11 +1873,129 @@ fun HistoryScreen() {
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                ReportListSection(
+                TransactionListSection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun TransactionDetailCard(
+    transaction: TransactionData
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
+        shape = RoundedCornerShape(22.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = "Tanggal",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = transaction.invoice_code,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = formatTransactionDate(transaction.created_at),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Text(
+                        text = transaction.payment_status,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Text(
+                    text = formatRupiah(transaction.total_price),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            TextButton(
+                onClick = {
+                    expanded = !expanded
+                }
+            ) {
+                Text(
+                    if (expanded) "Sembunyikan detail"
+                    else "Lihat detail"
+                )
+            }
+
+            if (expanded) {
+                Divider()
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                transaction.items.forEach { item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = item.product_name,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+
+                            Text(
+                                text = "${item.quantity} x ${formatRupiah(item.price)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Text(
+                            text = formatRupiah(item.subtotal),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
             }
         }
     }
@@ -1786,61 +2007,74 @@ fun ReportCard(
     transactions: Int,
     income: Int
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 12.dp),
-        shape = RoundedCornerShape(22.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    var showCard by remember {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(Unit) {
+        showCard = true
+    }
+
+    AnimatedVisibility(
+        visible = showCard,
+        enter = fadeIn() + slideInVertically(
+            initialOffsetY = { it / 4 }
+        )
     ) {
-        Row(
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(bottom = 12.dp),
+            shape = RoundedCornerShape(22.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
-            Surface(
-                modifier = Modifier.size(52.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.primaryContainer
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                Surface(
+                    modifier = Modifier.size(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.DateRange,
-                        contentDescription = "Tanggal",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = "Tanggal",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = formatReportTitle(title),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "$transactions Transaksi",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = formatReportTitle(title),
-                    style = MaterialTheme.typography.titleMedium
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "$transactions Transaksi",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = formatRupiah(income),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
-
-            Text(
-                text = formatRupiah(income),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
         }
     }
 }
@@ -1865,6 +2099,17 @@ fun formatReportTitle(value: String): String {
         "${parts[2]} ${monthName(parts[1])} ${parts[0]}"
     } else {
         cleanValue
+    }
+}
+
+fun formatTransactionDate(value: String): String {
+    val dateOnly = value.take(10)
+
+    return if (dateOnly.length >= 10 && dateOnly.contains("-")) {
+        val parts = dateOnly.split("-")
+        "${parts[2]} ${monthName(parts[1])} ${parts[0]}"
+    } else {
+        value
     }
 }
 

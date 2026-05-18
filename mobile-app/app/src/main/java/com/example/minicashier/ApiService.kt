@@ -84,6 +84,24 @@ data class DashboardResponse(
     val last_transaction: LastTransaction
 )
 
+data class TransactionItem(
+    val product_id: Int,
+    val product_name: String,
+    val quantity: Int,
+    val price: Int,
+    val subtotal: Int
+)
+
+data class TransactionData(
+    val id: Int,
+    val invoice_code: String,
+    val total_price: Int,
+    val payment_method: String,
+    val payment_status: String,
+    val created_at: String,
+    val items: List<TransactionItem>
+)
+
 data class LoginRequest(
     val username: String,
     val password: String
@@ -117,6 +135,9 @@ interface ApiService {
 
     @GET("categories/")
     suspend fun getCategories(): List<Category>
+
+    @GET("transactions/")
+    suspend fun getTransactions(): List<TransactionData>
 
     @POST("transactions/")
     suspend fun createTransaction(
