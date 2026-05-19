@@ -59,6 +59,8 @@ dependencies {
     implementation("com.google.zxing:core:3.5.3")
     //BOTTOM NAVIGATION
     implementation("androidx.navigation:navigation-compose:2.8.0")
+    //coil
+    implementation("io.coil-kt:coil-compose:2.6.0")
     //ICON
     implementation("androidx.compose.material:material-icons-extended")
     //DEPENDENCY
@@ -67,6 +69,7 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
     //ANALYSTICS CHART
     implementation("io.github.ehsannarmani:compose-charts:0.0.13")
+
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

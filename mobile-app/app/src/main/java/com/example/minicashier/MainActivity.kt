@@ -39,6 +39,8 @@ import androidx.compose.animation.slideInVertically
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import android.os.Environment
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.example.minicashier.ui.theme.MiniCashierTheme
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
@@ -94,6 +96,7 @@ fun ProductScreen(
     var paymentMessage by remember { mutableStateOf<String?>(null) }
     var receiptInvoiceCode by remember { mutableStateOf<String?>(null) }
     var receiptTotalPrice by remember { mutableStateOf<Int?>(null) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
 
     var dashboard by remember { mutableStateOf<DashboardResponse?>(null) }
 
@@ -205,10 +208,88 @@ fun ProductScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         when {
-            loading -> Text("Memuat data...")
+            loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator()
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Memuat menu...",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
             error != null -> Text("Error: $error")
-            products.isEmpty() -> Text("Belum ada menu")
-            filteredProducts.isEmpty() -> Text("Belum ada produk di kategori ini")
+            products.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 50.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "🍽️",
+                            fontSize = 42.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Belum ada menu",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+
+                        Text(
+                            text = "Tambahkan produk baru terlebih dahulu",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            filteredProducts.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 50.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "🔍",
+                            fontSize = 42.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Produk tidak ditemukan",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+
+                        Text(
+                            text = "Coba kategori atau pencarian lain",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
             else -> {
 
                 LazyVerticalGrid(
@@ -496,6 +577,7 @@ fun ProductScreen(
                                     paymentMessage = response.message
                                     receiptInvoiceCode = currentInvoiceCode
                                     receiptTotalPrice = currentTotalPrice
+                                    showSuccessDialog = true
                                     currentTransactionId = null
                                     dashboard = RetrofitClient.api.getDashboard()
 
@@ -519,6 +601,33 @@ fun ProductScreen(
                     ReceiptCard(
                         invoiceCode = receiptInvoiceCode,
                         totalPrice = receiptTotalPrice
+                    )
+                }
+                if (showSuccessDialog) {
+                    AlertDialog(
+                        onDismissRequest = {
+                            showSuccessDialog = false
+                        },
+                        title = {
+                            Text("Pembayaran Berhasil")
+                        },
+                        text = {
+                            Column {
+                                Text("Invoice: ${receiptInvoiceCode ?: "-"}")
+                                Text("Total: ${formatRupiah(receiptTotalPrice ?: 0)}")
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Struk pembayaran sudah dibuat.")
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    showSuccessDialog = false
+                                }
+                            ) {
+                                Text("Lihat Struk")
+                            }
+                        }
                     )
                 }
             }
@@ -1030,6 +1139,34 @@ fun LoginScreen(
     }
 }
 
+fun getProductImageUrl(productName: String): String {
+    val name = productName.lowercase()
+
+    return when {
+        name.contains("nasi goreng") ->
+            "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600"
+
+        name.contains("indomie goreng") ->
+            "https://images.unsplash.com/photo-1603033172872-c2525115c7b9?w=600"
+
+        name.contains("indomie+telur") ||
+                name.contains("indomie telur") ->
+            "https://images.unsplash.com/photo-1626804475297-41608ea09aeb?w=600"
+
+        name.contains("es teh") ->
+            "https://images.unsplash.com/photo-1499638673689-79a0b5115d87?w=600"
+
+        name.contains("teh hangat") ->
+            "https://images.unsplash.com/photo-1515823064-d6e0c04616a7?w=600"
+
+        name.contains("roti bakar") ->
+            "https://images.unsplash.com/photo-1484723091739-30a097e8f929?w=600"
+
+        else ->
+            "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600"
+    }
+}
+
 @Composable
 fun ProductCard(
     product: Product,
@@ -1051,9 +1188,16 @@ fun ProductCard(
         )
     ) {
 
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+        AsyncImage(
+            model = getProductImageUrl(product.name),
+            contentDescription = product.name,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp),
+            contentScale = ContentScale.Crop
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = product.name,
@@ -1106,7 +1250,6 @@ fun ProductCard(
             }
         }
     }
-}
 
 @Composable
 fun TransactionHistoryScreen(
@@ -1132,6 +1275,9 @@ fun AdminScreen() {
     var selectedCategoryId by remember { mutableStateOf<Int?>(null) }
     var adminMessage by remember { mutableStateOf<String?>(null) }
     var editingProductId by remember { mutableStateOf<Int?>(null) }
+    var deletingProduct by remember {
+        mutableStateOf<Product?>(null)
+    }
     var dashboard by remember { mutableStateOf<DashboardResponse?>(null) }
 
     val scope = rememberCoroutineScope()
@@ -1241,18 +1387,7 @@ fun AdminScreen() {
                             adminMessage = "Mode edit: ${product.name}"
                         },
                         onDeleteProduct = { product ->
-                            scope.launch {
-                                try {
-                                    val response =
-                                        RetrofitClient.api.deleteProduct(product.id)
-
-                                    adminMessage = response.message
-                                    reloadProducts()
-
-                                } catch (e: Exception) {
-                                    adminMessage = "Gagal hapus: ${e.message}"
-                                }
-                            }
+                            deletingProduct = product
                         }
                     )
                 }
@@ -1288,22 +1423,69 @@ fun AdminScreen() {
                         adminMessage = "Mode edit: ${product.name}"
                     },
                     onDeleteProduct = { product ->
-                        scope.launch {
-                            try {
-                                val response =
-                                    RetrofitClient.api.deleteProduct(product.id)
-
-                                adminMessage = response.message
-                                reloadProducts()
-
-                            } catch (e: Exception) {
-                                adminMessage = "Gagal hapus: ${e.message}"
-                            }
-                        }
+                        deletingProduct = product
                     }
                 )
             }
         }
+    }
+
+    deletingProduct?.let { product ->
+
+        AlertDialog(
+            onDismissRequest = {
+                deletingProduct = null
+            },
+
+            title = {
+                Text("Hapus Produk")
+            },
+
+            text = {
+                Text(
+                    "Yakin ingin menghapus ${product.name}?"
+                )
+            },
+
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        deletingProduct = null
+                    }
+                ) {
+                    Text("Batal")
+                }
+            },
+
+            confirmButton = {
+                Button(
+                    onClick = {
+
+                        scope.launch {
+
+                            try {
+
+                                val response =
+                                    RetrofitClient.api.deleteProduct(product.id)
+
+                                adminMessage = response.message
+
+                                reloadProducts()
+
+                            } catch (e: Exception) {
+
+                                adminMessage =
+                                    "Gagal hapus: ${e.message}"
+                            }
+
+                            deletingProduct = null
+                        }
+                    }
+                ) {
+                    Text("Hapus")
+                }
+            }
+        )
     }
 }
 
@@ -1373,6 +1555,7 @@ fun ReceiptCard(
     totalPrice: Int?
 ) {
     val context = LocalContext.current
+    var pdfMessage by remember { mutableStateOf<String?>(null) }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1409,14 +1592,38 @@ fun ReceiptCard(
 
             Button(
                 onClick = {
-                    saveReceiptPdf(
-                        invoiceCode = invoiceCode ?: "-",
-                        totalPrice = totalPrice ?: 0
-                    )
+                    try {
+                        saveReceiptPdf(
+                            invoiceCode = invoiceCode ?: "-",
+                            totalPrice = totalPrice ?: 0
+                        )
+
+                        pdfMessage = "PDF berhasil disimpan di Downloads"
+
+                    } catch (e: Exception) {
+                        pdfMessage = "Gagal simpan PDF: ${e.message}"
+                    }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Simpan Struk PDF")
+            }
+            pdfMessage?.let {
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Text(
+                        text = it,
+                        modifier = Modifier.padding(12.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }
@@ -1676,6 +1883,7 @@ fun HistoryScreen(
 
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var historySearchQuery by remember { mutableStateOf("") }
 
     fun loadData(tabIndex: Int) {
         scope.launch {
@@ -1719,23 +1927,30 @@ fun HistoryScreen(
             .filter { it.payment_status == "PAID" }
             .filter { transaction ->
                 when (selectedTab) {
-                    0 -> {
-                        dailyReports.any { report ->
-                            transaction.created_at.startsWith(report.date)
-                        }
+                    0 -> dailyReports.any { report ->
+                        transaction.created_at.startsWith(report.date)
                     }
 
-                    1 -> {
-                        monthlyReports.any { report ->
-                            transaction.created_at.startsWith(report.month)
-                        }
+                    1 -> monthlyReports.any { report ->
+                        transaction.created_at.startsWith(report.month)
                     }
 
-                    else -> {
-                        yearlyReports.any { report ->
-                            transaction.created_at.startsWith(report.year.toString())
-                        }
+                    else -> yearlyReports.any { report ->
+                        transaction.created_at.startsWith(report.year.toString())
                     }
+                }
+            }
+            .filter { transaction ->
+                val query = historySearchQuery.trim()
+
+                if (query.isBlank()) {
+                    true
+                } else {
+                    transaction.invoice_code.contains(query, ignoreCase = true) ||
+                            transaction.created_at.contains(query, ignoreCase = true) ||
+                            transaction.items.any { item ->
+                                item.product_name.contains(query, ignoreCase = true)
+                            }
                 }
             }
     }
@@ -1863,6 +2078,20 @@ fun HistoryScreen(
                         )
                     }
                 }
+
+                OutlinedTextField(
+                    value = historySearchQuery,
+                    onValueChange = { historySearchQuery = it },
+                    label = { Text("Cari invoice / produk...") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search"
+                        )
+                    },
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
