@@ -1,57 +1,67 @@
 package com.example.minicashier.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.font.FontFamily
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF16A34A),
+    primary = Color(0xFF2563EB),
     secondary = Color(0xFF0EA5E9),
-    tertiary = Color(0xFFF97316),
+    tertiary = Color(0xFF38BDF8),
+
     background = Color(0xFFF8FAFC),
-    surface = Color.White,
+    surface = Color(0xFFFFFFFF),
+
+    primaryContainer = Color(0xFFDBEAFE),
+    secondaryContainer = Color(0xFFE0F2FE),
+    tertiaryContainer = Color(0xFFE0F7FA),
+
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.White,
+
+    onPrimaryContainer = Color(0xFF1E3A8A),
+    onSecondaryContainer = Color(0xFF075985),
+    onTertiaryContainer = Color(0xFF155E75),
+
     onBackground = Color(0xFF0F172A),
-    onSurface = Color(0xFF0F172A)
+    onSurface = Color(0xFF0F172A),
+    onSurfaceVariant = Color(0xFF64748B),
+
+    error = Color(0xFFDC2626)
 )
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF22C55E),
-    secondary = Color(0xFF38BDF8),
-    tertiary = Color(0xFFFB923C),
-    background = Color(0xFF020617),
-    surface = Color(0xFF0F172A),
-    onPrimary = Color(0xFF052E16),
-    onSecondary = Color(0xFF082F49),
-    onTertiary = Color(0xFF431407),
-    onBackground = Color(0xFFE2E8F0),
-    onSurface = Color(0xFFE2E8F0)
+private val AppTypography = Typography(
+    headlineLarge = Typography().headlineLarge.copy(
+        fontFamily = FontFamily.SansSerif
+    ),
+    headlineMedium = Typography().headlineMedium.copy(
+        fontFamily = FontFamily.SansSerif
+    ),
+    headlineSmall = Typography().headlineSmall.copy(
+        fontFamily = FontFamily.SansSerif
+    ),
+    titleLarge = Typography().titleLarge.copy(
+        fontFamily = FontFamily.SansSerif
+    ),
+    titleMedium = Typography().titleMedium.copy(
+        fontFamily = FontFamily.SansSerif
+    ),
+    bodyMedium = Typography().bodyMedium.copy(
+        fontFamily = FontFamily.SansSerif
+    )
 )
 
 @Composable
 fun MiniCashierTheme(
-    darkTheme: Boolean = false,
-    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) {
-        DarkColorScheme
-    } else {
-        LightColorScheme
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
+        colorScheme = LightColorScheme,
+        typography = AppTypography,
         content = content
     )
 }

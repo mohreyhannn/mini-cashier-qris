@@ -43,7 +43,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.scale
 import coil.compose.AsyncImage
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import com.example.minicashier.ui.theme.MiniCashierTheme
 import com.google.zxing.BarcodeFormat
@@ -716,105 +722,219 @@ fun ProductScreen(
 }
 
 @Composable
-fun DashboardCard(dashboard: DashboardResponse) {
-
-    val maxValue = maxOf(
-        dashboard.total_income,
-        dashboard.total_transactions,
-        dashboard.total_items_sold,
-        1
-    )
-
-    fun barWidth(value: Int): Float {
-        return value.toFloat() / maxValue.toFloat()
-    }
+fun DashboardCard(
+    dashboard: DashboardResponse
+) {
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 16.dp),
-        shape = RoundedCornerShape(20.dp),
+
+        shape = RoundedCornerShape(30.dp),
+
         elevation = CardDefaults.cardElevation(
             defaultElevation = 8.dp
+        ),
+
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme.colorScheme.surface
         )
     ) {
 
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(18.dp)
         ) {
 
             Text(
-                text = "Dashboard Kasir",
+                text = "Dashboard Analytics",
                 style = MaterialTheme.typography.headlineSmall
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            Text("💰 Total Income")
-            Text(
-                text = formatRupiah(dashboard.total_income),
-                style = MaterialTheme.typography.titleMedium,
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+
+                shape = RoundedCornerShape(24.dp),
+
                 color = MaterialTheme.colorScheme.primary
-            )
-            LinearProgressIndicator(
-                progress = { barWidth(dashboard.total_income) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(10.dp)
-            )
+            ) {
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Column(
+                    modifier = Modifier.padding(20.dp)
+                ) {
 
-            Text("🧾 Total Transactions")
-            Text(
-                text = dashboard.total_transactions.toString(),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            LinearProgressIndicator(
-                progress = { barWidth(dashboard.total_transactions) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(10.dp)
-            )
+                    Text(
+                        text = "Total Income",
 
-            Spacer(modifier = Modifier.height(16.dp))
+                        style =
+                            MaterialTheme.typography.bodyLarge,
 
-            Text("📦 Total Items Sold")
-            Text(
-                text = dashboard.total_items_sold.toString(),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            LinearProgressIndicator(
-                progress = { barWidth(dashboard.total_items_sold) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(10.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Divider()
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "Last Transaction",
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            Text(
-                "Invoice: ${dashboard.last_transaction.invoice_code}"
-            )
-
-            Text(
-                "Total: ${
-                    formatRupiah(
-                        dashboard.last_transaction.total_price
+                        color =
+                            MaterialTheme.colorScheme.onPrimary
                     )
-                }"
-            )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text =
+                            formatRupiah(
+                                dashboard.total_income
+                            ),
+
+                        style =
+                            MaterialTheme.typography.headlineMedium,
+
+                        color =
+                            MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+
+                horizontalArrangement =
+                    Arrangement.spacedBy(12.dp)
+            ) {
+
+                Surface(
+                    modifier = Modifier.weight(1f),
+
+                    shape = RoundedCornerShape(22.dp),
+
+                    color =
+                        MaterialTheme.colorScheme.primaryContainer
+                ) {
+
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+
+                        Text(
+                            text = "🧾",
+
+                            fontSize = 28.sp
+                        )
+
+                        Spacer(
+                            modifier =
+                                Modifier.height(8.dp)
+                        )
+
+                        Text(
+                            text =
+                                dashboard.total_transactions
+                                    .toString(),
+
+                            style =
+                                MaterialTheme.typography.headlineSmall
+                        )
+
+                        Text(
+                            text = "Transactions",
+
+                            style =
+                                MaterialTheme.typography.bodyMedium,
+
+                            color =
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier.weight(1f),
+
+                    shape = RoundedCornerShape(22.dp),
+
+                    color =
+                        MaterialTheme.colorScheme.secondaryContainer
+                ) {
+
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+
+                        Text(
+                            text = "📦",
+
+                            fontSize = 28.sp
+                        )
+
+                        Spacer(
+                            modifier =
+                                Modifier.height(8.dp)
+                        )
+
+                        Text(
+                            text =
+                                dashboard.total_items_sold
+                                    .toString(),
+
+                            style =
+                                MaterialTheme.typography.headlineSmall
+                        )
+
+                        Text(
+                            text = "Items Sold",
+
+                            style =
+                                MaterialTheme.typography.bodyMedium,
+
+                            color =
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+
+                shape = RoundedCornerShape(20.dp),
+
+                color =
+                    MaterialTheme.colorScheme.surfaceVariant
+            ) {
+
+                Column(
+                    modifier = Modifier.padding(14.dp)
+                ) {
+
+                    Text(
+                        text = "Last Transaction",
+
+                        style =
+                            MaterialTheme.typography.titleMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text =
+                            dashboard.last_transaction.invoice_code,
+
+                        color =
+                            MaterialTheme.colorScheme.primary
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text =
+                            formatRupiah(
+                                dashboard.last_transaction.total_price
+                            )
+                    )
+                }
+            }
         }
     }
 }
@@ -834,44 +954,62 @@ fun AdminProductForm(
     onCancelEdit: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 16.dp)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp    )) {
+        Column(
+            modifier = Modifier.padding(18.dp)
+        ) {
             Text(
                 text = if (editingProductId == null)
-                    "Admin Tambah Produk"
+                    "Tambah Produk"
                 else
-                    "Admin Edit Produk",
+                    "Edit Produk",
                 style = MaterialTheme.typography.headlineSmall
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Lengkapi data menu dengan benar",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
                 value = productName,
                 onValueChange = onProductNameChange,
                 label = { Text("Nama Produk") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = productPrice,
-                onValueChange = onProductPriceChange,
-                label = { Text("Harga") },
+                shape = RoundedCornerShape(18.dp),
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Text("Pilih Kategori")
+            OutlinedTextField(
+                value = productPrice,
+                onValueChange = onProductPriceChange,
+                label = { Text("Harga Produk") },
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Kategori",
+                style = MaterialTheme.typography.titleMedium
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 items(categoriesData) { category ->
                     FilterChip(
                         selected = selectedCategoryId == category.id,
@@ -881,11 +1019,12 @@ fun AdminProductForm(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             Button(
                 onClick = onSubmit,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp)
             ) {
                 Text(
                     if (editingProductId == null)
@@ -900,18 +1039,27 @@ fun AdminProductForm(
 
                 OutlinedButton(
                     onClick = onCancelEdit,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp)
                 ) {
                     Text("Batal Edit")
                 }
             }
 
             adminMessage?.let {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = it,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Text(
+                        text = it,
+                        modifier = Modifier.padding(12.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }
@@ -971,7 +1119,6 @@ fun MainNavigation(
     user: UserData,
     onLogout: () -> Unit
 ) {
-
     val navController = rememberNavController()
     val context = LocalContext.current
     val sessionManager = remember {
@@ -980,86 +1127,118 @@ fun MainNavigation(
     val scope = rememberCoroutineScope()
 
     val startRoute =
-        if (user.role == "ADMIN") {
-            "admin"
-        } else {
-            "home"
-        }
+        if (user.role == "ADMIN") "admin" else "home"
+
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
     Scaffold(
+        containerColor = Color.Transparent,
         bottomBar = {
-            NavigationBar {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(28.dp),
+                shadowElevation = 12.dp,
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp
+                ) {
+                    if (user.role != "ADMIN") {
+                        NavigationBarItem(
+                            selected = currentRoute == "home",
+                            onClick = {
+                                navController.navigate("home")
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            label = { Text("Home") },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Default.Home,
+                                    contentDescription = "Home"
+                                )
+                            }
+                        )
+                    }
 
-                if (user.role != "ADMIN") {
+                    NavigationBarItem(
+                        selected = currentRoute == "history",
+                        onClick = {
+                            navController.navigate("history")
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        label = { Text("History") },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = "History"
+                            )
+                        }
+                    )
+
+                    if (user.role == "ADMIN") {
+                        NavigationBarItem(
+                            selected = currentRoute == "admin",
+                            onClick = {
+                                navController.navigate("admin")
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            label = { Text("Admin") },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Default.AdminPanelSettings,
+                                    contentDescription = "Admin"
+                                )
+                            }
+                        )
+                    }
+
                     NavigationBarItem(
                         selected = false,
                         onClick = {
-                            navController.navigate("home")
+                            scope.launch {
+                                sessionManager.logout()
+                                onLogout()
+                            }
                         },
-                        label = {
-                            Text("Home")
-                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        label = { Text("Logout") },
                         icon = {
                             Icon(
                                 imageVector = Icons.Default.Home,
-                                contentDescription = "Home"
+                                contentDescription = "Logout"
                             )
                         }
                     )
                 }
-
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {
-                        navController.navigate("history")
-                    },
-                    label = {
-                        Text("History")
-                    },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.History,
-                            contentDescription = "History"
-                        )
-                    }
-                )
-
-                if (user.role == "ADMIN") {
-                    NavigationBarItem(
-                        selected = false,
-                        onClick = {
-                            navController.navigate("admin")
-                        },
-                        label = {
-                            Text("Admin")
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Default.AdminPanelSettings,
-                                contentDescription = "Admin"
-                            )
-                        }
-                    )
-                }
-
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {
-                        scope.launch {
-                            sessionManager.logout()
-                            onLogout()
-                        }
-                    },
-                    label = {
-                        Text("Logout")
-                    },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Home,
-                            contentDescription = "Logout"
-                        )
-                    }
-                )
             }
         }
     ) { paddingValues ->
@@ -1067,7 +1246,9 @@ fun MainNavigation(
         NavHost(
             navController = navController,
             startDestination = startRoute,
-            modifier = Modifier.padding(paddingValues)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
             composable("home") {
                 ProductScreen(user = user)
@@ -1233,99 +1414,131 @@ fun ProductCard(
     onRestockProduct: () -> Unit,
     onDeleteProduct: () -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-    ) {
-        Column {
-            AsyncImage(
-                model = getProductImageUrl(product.name),
-                contentDescription = product.name,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp),
-                contentScale = ContentScale.Crop
-            )
+    var pressed by remember { mutableStateOf(false) }
+    var showCard by remember { mutableStateOf(false) }
 
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.97f else 1f,
+        label = "productCardScale"
+    )
+
+    LaunchedEffect(Unit) {
+        showCard = true
+    }
+
+    AnimatedVisibility(
+        visible = showCard,
+        enter = fadeIn() + slideInVertically(
+            initialOffsetY = { it / 4 }
+        )
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .scale(scale)
+                .clickable {
+                    pressed = true
+                    pressed = false
+                }
+                .padding(vertical = 8.dp),
+            shape = RoundedCornerShape(28.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
             Column(
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(12.dp)
             ) {
-                Text(product.name, style = MaterialTheme.typography.titleLarge)
+                AsyncImage(
+                    model = getProductImageUrl(product.name),
+                    contentDescription = product.name,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(22.dp)),
+                    contentScale = ContentScale.Crop
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = product.name,
+                    style = MaterialTheme.typography.titleLarge
+                )
 
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
                     text = product.category,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                Text(
-                    text = formatRupiah(product.price),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formatRupiah(product.price),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                when {
-                    product.stock <= 0 -> {
-                        Text(
-                            text = "❌ Sold Out",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-
-                    product.stock <= 5 -> {
-                        Text(
-                            text = "⚠ Stock tinggal ${product.stock}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                    }
-
-                    else -> {
-                        Text(
-                            text = "Stock: ${product.stock}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = when {
+                            product.stock <= 0 -> "Sold Out"
+                            product.stock <= 5 -> "Stock ${product.stock}"
+                            else -> "Stock ${product.stock}"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = when {
+                            product.stock <= 0 -> MaterialTheme.colorScheme.error
+                            product.stock <= 5 -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!isAdmin) {
                     Button(
                         onClick = onAddToCart,
-                        modifier = Modifier.weight(1f),
-                        enabled = product.stock > 0
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = product.stock > 0,
+                        shape = RoundedCornerShape(18.dp)
                     ) {
                         Text("+ Tambah")
                     }
-
-                    if (isAdmin) {
-
-                        Button(
-                            onClick = onEditProduct
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onEditProduct,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(16.dp)
                         ) {
                             Text("Edit")
                         }
 
                         Button(
-                            onClick = onRestockProduct
+                            onClick = onRestockProduct,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(16.dp)
                         ) {
                             Text("Stock")
                         }
 
-                        Button(
-                            onClick = onDeleteProduct
+                        OutlinedButton(
+                            onClick = onDeleteProduct,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(16.dp)
                         ) {
                             Text("Hapus")
                         }
@@ -1335,6 +1548,7 @@ fun ProductCard(
         }
     }
 }
+
 @Composable
 fun TransactionHistoryScreen(
     user: UserData
@@ -1440,7 +1654,7 @@ fun AdminScreen() {
             adminMessage = "Gagal load data: ${e.message}"
         }
     }
-
+    //Tablet
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -1456,10 +1670,11 @@ fun AdminScreen() {
                 Column(
                     modifier = Modifier
                         .weight(1.4f)
-                        .verticalScroll(rememberScrollState())
+                        .fillMaxHeight()
                 ) {
                     AdminManagementContent(
                         products = products,
+                        dashboard = dashboard,
                         bestSellers = bestSellers,
                         categoriesData = categoriesData,
                         productName = productName,
@@ -1493,13 +1708,13 @@ fun AdminScreen() {
                 }
             }
         } else {
+            //Heandphone
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                modifier = Modifier.fillMaxSize()
             ) {
                 AdminManagementContent(
                     products = products,
+                    dashboard = dashboard,
                     bestSellers = bestSellers,
                     categoriesData = categoriesData,
                     productName = productName,
@@ -1654,31 +1869,79 @@ fun BestSellerCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        shape = RoundedCornerShape(28.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(18.dp)
         ) {
             Text(
-                text = "🔥 Best Seller",
+                text = "Best Seller",
                 style = MaterialTheme.typography.headlineSmall
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Produk paling banyak terjual",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             if (bestSellers.isEmpty()) {
                 Text("Belum ada data penjualan")
             } else {
                 bestSellers.forEachIndexed { index, item ->
-                    Row(
+
+                    val medal = when (index) {
+                        0 -> "🥇"
+                        1 -> "🥈"
+                        2 -> "🥉"
+                        else -> "${index + 1}"
+                    }
+
+                    Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(bottom = 10.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
                     ) {
-                        Text("${index + 1}. ${item.product_name}")
-                        Text("${item.total_sold}x")
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = medal,
+                                fontSize = 24.sp
+                            )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = item.product_name,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+
+                                Text(
+                                    text = "Terjual ${item.total_sold}x",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Text(
+                                text = "${item.total_sold}x",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }
@@ -1690,6 +1953,7 @@ fun BestSellerCard(
 @Composable
 fun AdminManagementContent(
     products: List<Product>,
+    dashboard: DashboardResponse?,
     bestSellers: List<BestSellerResponse>,
     productName: String,
     productPrice: String,
@@ -1705,57 +1969,81 @@ fun AdminManagementContent(
     onRestockProduct: (Product) -> Unit,
     onDeleteProduct: (Product) -> Unit
 ) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    text = "Admin Dashboard",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
 
-    Column {
-        BestSellerCard(bestSellers = bestSellers)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        AdminProductForm(
-            productName = productName,
-            productPrice = productPrice,
-            categoriesData = categoriesData,
-            selectedCategoryId = selectedCategoryId,
-            editingProductId = editingProductId,
-            adminMessage = adminMessage,
-            onProductNameChange = onProductNameChange,
-            onProductPriceChange = onProductPriceChange,
-            onCategorySelected = onCategorySelected,
-            onSubmit = onSubmit,
-            onCancelEdit = {
-                onProductNameChange("")
-                onProductPriceChange("")
+                Text(
+                    text = "Kelola produk, stock, dan penjualan",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
             }
-        )
+        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+            dashboard?.let {
+                DashboardCard(dashboard = it)
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
-        Text(
-            text = "Daftar Produk",
-            style = MaterialTheme.typography.headlineSmall
-        )
+            BestSellerCard(bestSellers = bestSellers)
 
-        Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        products.forEach { product ->
-
-            ProductCard(
-                product = product,
-                isAdmin = true,
-                onAddToCart = {},
-
-                onEditProduct = {
-                    onEditProduct(product)
-                },
-
-                onRestockProduct = {
-                    onRestockProduct(product)
-                },
-
-                onDeleteProduct = {
-                    onDeleteProduct(product)
+            AdminProductForm(
+                productName = productName,
+                productPrice = productPrice,
+                categoriesData = categoriesData,
+                selectedCategoryId = selectedCategoryId,
+                editingProductId = editingProductId,
+                adminMessage = adminMessage,
+                onProductNameChange = onProductNameChange,
+                onProductPriceChange = onProductPriceChange,
+                onCategorySelected = onCategorySelected,
+                onSubmit = onSubmit,
+                onCancelEdit = {
+                    onProductNameChange("")
+                    onProductPriceChange("")
                 }
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Daftar Produk",
+                style = MaterialTheme.typography.headlineSmall
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            products.forEach { product ->
+                ProductCard(
+                    product = product,
+                    isAdmin = true,
+                    onAddToCart = {},
+                    onEditProduct = { onEditProduct(product) },
+                    onRestockProduct = { onRestockProduct(product) },
+                    onDeleteProduct = { onDeleteProduct(product) }
+                )
+            }
         }
     }
 }
@@ -2071,6 +2359,44 @@ fun AnalyticsBarChart(
 }
 
 @Composable
+fun EmptyState(
+    icon: String,
+    title: String,
+    message: String
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 42.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = icon,
+                fontSize = 48.sp
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
 fun HistoryScreen(
     user: UserData
 ) {
@@ -2169,7 +2495,11 @@ fun HistoryScreen(
             when {
                 loading -> Text("Memuat riwayat...")
                 error != null -> Text("Error: $error")
-                filteredTransactions().isEmpty() -> Text("Belum ada transaksi")
+                filteredTransactions().isEmpty() -> EmptyState(
+                    icon = "📦",
+                    title = "Belum ada transaksi",
+                    message = "Transaksi yang sudah dibayar akan muncul di sini"
+                )
                 else -> {
                     filteredTransactions().forEach { transaction ->
                         TransactionDetailCard(transaction = transaction)
@@ -2320,35 +2650,54 @@ fun HistoryScreen(
 fun TransactionDetailCard(
     transaction: TransactionData
 ) {
-    var expanded by remember { mutableStateOf(false) }
+
+    var expanded by remember {
+        mutableStateOf(false)
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 12.dp),
-        shape = RoundedCornerShape(22.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .padding(bottom = 14.dp),
+
+        shape = RoundedCornerShape(26.dp),
+
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 6.dp
+        ),
+
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme.colorScheme.surface
+        )
     ) {
+
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
+
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+
                 Surface(
-                    modifier = Modifier.size(52.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer
+                    modifier = Modifier.size(58.dp),
+
+                    shape = RoundedCornerShape(18.dp),
+
+                    color =
+                        MaterialTheme.colorScheme.primaryContainer
                 ) {
+
                     Box(
                         modifier = Modifier.fillMaxSize(),
+
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.DateRange,
-                            contentDescription = "Tanggal",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
+
+                        Text(
+                            text = "🧾",
+                            fontSize = 28.sp
                         )
                     }
                 }
@@ -2358,75 +2707,171 @@ fun TransactionDetailCard(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
+
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+
+                        color =
+                            MaterialTheme.colorScheme.primary
+                                .copy(alpha = 0.12f)
+                    ) {
+
+                        Text(
+                            text = transaction.invoice_code,
+
+                            modifier = Modifier.padding(
+                                horizontal = 10.dp,
+                                vertical = 4.dp
+                            ),
+
+                            color =
+                                MaterialTheme.colorScheme.primary,
+
+                            style =
+                                MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Text(
-                        text = transaction.invoice_code,
-                        style = MaterialTheme.typography.titleMedium
+                        text =
+                            formatTransactionDate(
+                                transaction.created_at
+                            ),
+
+                        style =
+                            MaterialTheme.typography.bodyMedium,
+
+                        color =
+                            MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = formatTransactionDate(transaction.created_at),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text =
+                            transaction.payment_status,
+
+                        style =
+                            MaterialTheme.typography.bodySmall,
+
+                        color =
+                            MaterialTheme.colorScheme.primary
                     )
+                }
+
+                Column(
+                    horizontalAlignment =
+                        Alignment.End
+                ) {
 
                     Text(
-                        text = transaction.payment_status,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        text =
+                            formatRupiah(
+                                transaction.total_price
+                            ),
+
+                        style =
+                            MaterialTheme.typography.titleLarge,
+
+                        color =
+                            MaterialTheme.colorScheme.primary
                     )
-                }
 
-                Text(
-                    text = formatRupiah(transaction.total_price),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
+                    Spacer(modifier = Modifier.height(6.dp))
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            TextButton(
-                onClick = {
-                    expanded = !expanded
-                }
-            ) {
-                Text(
-                    if (expanded) "Sembunyikan detail"
-                    else "Lihat detail"
-                )
-            }
-
-            if (expanded) {
-                Divider()
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                transaction.items.forEach { item ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(
-                                text = item.product_name,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-
-                            Text(
-                                text = "${item.quantity} x ${formatRupiah(item.price)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    TextButton(
+                        onClick = {
+                            expanded = !expanded
                         }
+                    ) {
 
                         Text(
-                            text = formatRupiah(item.subtotal),
-                            style = MaterialTheme.typography.bodyMedium
+                            if (expanded)
+                                "Tutup"
+                            else
+                                "Detail"
                         )
+                    }
+                }
+            }
+
+            AnimatedVisibility(
+                visible = expanded
+            ) {
+
+                Column {
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Divider()
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    transaction.items.forEach { item ->
+
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 10.dp),
+
+                            shape = RoundedCornerShape(18.dp),
+
+                            color =
+                                MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+
+                                horizontalArrangement =
+                                    Arrangement.SpaceBetween
+                            ) {
+
+                                Column(
+                                    modifier = Modifier.weight(1f)
+                                ) {
+
+                                    Text(
+                                        text = item.product_name,
+
+                                        style =
+                                            MaterialTheme.typography.titleMedium
+                                    )
+
+                                    Spacer(
+                                        modifier =
+                                            Modifier.height(4.dp)
+                                    )
+
+                                    Text(
+                                        text =
+                                            "${item.quantity} x ${
+                                                formatRupiah(item.price)
+                                            }",
+
+                                        style =
+                                            MaterialTheme.typography.bodyMedium,
+
+                                        color =
+                                            MaterialTheme.colorScheme
+                                                .onSurfaceVariant
+                                    )
+                                }
+
+                                Text(
+                                    text =
+                                        formatRupiah(item.subtotal),
+
+                                    style =
+                                        MaterialTheme.typography.titleMedium,
+
+                                    color =
+                                        MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     }
                 }
             }
