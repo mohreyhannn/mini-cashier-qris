@@ -180,88 +180,114 @@ def create_transaction():
     total_price = 0
     transaction_items = []
 
-    for item in items:
-        product_id = item["product_id"]
-        quantity = item["quantity"]
+    try:
+        for item in items:
+            product_id = item["product_id"]
+            quantity = item["quantity"]
+
+            cur.execute("""
+                SELECT id, name, price, stock
+                FROM products
+                WHERE id = %s
+                FOR UPDATE
+            """, (product_id,))
+
+            product = cur.fetchone()
+
+            if not product:
+                conn.rollback()
+                return jsonify({
+                    "message": f"Produk dengan id {product_id} tidak ditemukan"
+                }), 404
+
+            product_name = product[1]
+            price = product[2]
+            stock = product[3]
+
+            if stock < quantity:
+                conn.rollback()
+                return jsonify({
+                    "message": f"Stock {product_name} tidak cukup. Sisa stock: {stock}"
+                }), 400
+
+            subtotal = price * quantity
+            total_price += subtotal
+
+            transaction_items.append({
+                "product_id": product_id,
+                "quantity": quantity,
+                "price": price,
+                "subtotal": subtotal
+            })
 
         cur.execute("""
-            SELECT price
-            FROM products
-            WHERE id = %s
-        """, (product_id,))
-
-        product = cur.fetchone()
-
-        if not product:
-            cur.close()
-            conn.close()
-            return jsonify({
-                "message": f"Produk dengan id {product_id} tidak ditemukan"
-            }), 404
-
-        price = product[0]
-        subtotal = price * quantity
-        total_price += subtotal
-
-        transaction_items.append({
-            "product_id": product_id,
-            "quantity": quantity,
-            "price": price,
-            "subtotal": subtotal
-        })
-
-    cur.execute("""
-        INSERT INTO transactions
-        (
+            INSERT INTO transactions
+            (
+                invoice_code,
+                total_price,
+                payment_method,
+                payment_status
+            )
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
+        """, (
             invoice_code,
             total_price,
             payment_method,
             payment_status
-        )
-        VALUES (%s, %s, %s, %s)
-        RETURNING id
-    """, (
-        invoice_code,
-        total_price,
-        payment_method,
-        payment_status
-    ))
-
-    transaction_id = cur.fetchone()[0]
-
-    for item in transaction_items:
-        cur.execute("""
-            INSERT INTO transaction_items
-            (
-                transaction_id,
-                product_id,
-                quantity,
-                price,
-                subtotal
-            )
-            VALUES (%s, %s, %s, %s, %s)
-        """, (
-            transaction_id,
-            item["product_id"],
-            item["quantity"],
-            item["price"],
-            item["subtotal"]
         ))
 
-    conn.commit()
+        transaction_id = cur.fetchone()[0]
 
-    cur.close()
-    conn.close()
+        for item in transaction_items:
+            cur.execute("""
+                INSERT INTO transaction_items
+                (
+                    transaction_id,
+                    product_id,
+                    quantity,
+                    price,
+                    subtotal
+                )
+                VALUES (%s, %s, %s, %s, %s)
+            """, (
+                transaction_id,
+                item["product_id"],
+                item["quantity"],
+                item["price"],
+                item["subtotal"]
+            ))
 
-    return jsonify({
-        "message": "Transaksi berhasil dibuat",
-        "transaction_id": transaction_id,
-        "invoice_code": invoice_code,
-        "total_price": total_price,
-        "payment_method": payment_method,
-        "payment_status": payment_status
-    }), 201
+            cur.execute("""
+                UPDATE products
+                SET stock = stock - %s
+                WHERE id = %s
+            """, (
+                item["quantity"],
+                item["product_id"]
+            ))
 
+        conn.commit()
+
+        return jsonify({
+            "message": "Transaksi berhasil dibuat",
+            "transaction_id": transaction_id,
+            "invoice_code": invoice_code,
+            "total_price": total_price,
+            "payment_method": payment_method,
+            "payment_status": payment_status
+        }), 201
+
+    except Exception as e:
+        conn.rollback()
+
+        return jsonify({
+            "message": f"Transaksi gagal: {str(e)}"
+        }), 500
+
+    finally:
+        cur.close()
+        conn.close()
 
 @transaction_bp.route("/<int:id>/pay", methods=["PUT"])
 def pay_transaction(id):

@@ -407,47 +407,11 @@ fun ProductScreen(
                                 }
                             },
 
-                            onEditProduct = {
+                            onEditProduct = {},
 
-                                productName = product.name
-                                productPrice = product.price.toString()
+                            onRestockProduct = {},
 
-                                val category = categoriesData.find {
-                                    it.name == product.category
-                                }
-
-                                selectedCategoryId = category?.id
-                                editingProductId = product.id
-
-                                adminMessage =
-                                    "Mode edit produk: ${product.name}"
-                            },
-
-                            onDeleteProduct = {
-
-                                scope.launch {
-
-                                    try {
-
-                                        val response =
-                                            RetrofitClient.api.deleteProduct(product.id)
-
-                                        adminMessage = response.message
-
-                                        products =
-                                            RetrofitClient.api.getProducts()
-
-                                        cartItems.removeAll {
-                                            it.product.id == product.id
-                                        }
-
-                                    } catch (e: Exception) {
-
-                                        adminMessage =
-                                            "Gagal hapus produk: ${e.message}"
-                                    }
-                                }
-                            }
+                            onDeleteProduct = {}
                         )
                     }
                 }
@@ -1261,6 +1225,7 @@ fun ProductCard(
     isAdmin: Boolean,
     onAddToCart: () -> Unit,
     onEditProduct: () -> Unit,
+    onRestockProduct: () -> Unit,
     onDeleteProduct: () -> Unit
 ) {
     Card(
@@ -1301,22 +1266,62 @@ fun ProductCard(
                     color = MaterialTheme.colorScheme.primary
                 )
 
+                Spacer(modifier = Modifier.height(6.dp))
+
+                when {
+                    product.stock <= 0 -> {
+                        Text(
+                            text = "❌ Sold Out",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    product.stock <= 5 -> {
+                        Text(
+                            text = "⚠ Stock tinggal ${product.stock}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+
+                    else -> {
+                        Text(
+                            text = "Stock: ${product.stock}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = onAddToCart,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        enabled = product.stock > 0
                     ) {
                         Text("+ Tambah")
                     }
 
                     if (isAdmin) {
-                        Button(onClick = onEditProduct) {
+
+                        Button(
+                            onClick = onEditProduct
+                        ) {
                             Text("Edit")
                         }
 
-                        Button(onClick = onDeleteProduct) {
+                        Button(
+                            onClick = onRestockProduct
+                        ) {
+                            Text("Stock")
+                        }
+
+                        Button(
+                            onClick = onDeleteProduct
+                        ) {
                             Text("Hapus")
                         }
                     }
@@ -1325,7 +1330,6 @@ fun ProductCard(
         }
     }
 }
-
 @Composable
 fun TransactionHistoryScreen(
     user: UserData
@@ -1352,6 +1356,13 @@ fun AdminScreen() {
     var editingProductId by remember { mutableStateOf<Int?>(null) }
     var deletingProduct by remember {
         mutableStateOf<Product?>(null)
+    }
+    var restockProduct by remember {
+        mutableStateOf<Product?>(null)
+    }
+
+    var restockAmount by remember {
+        mutableStateOf("")
     }
     var dashboard by remember { mutableStateOf<DashboardResponse?>(null) }
 
@@ -1461,6 +1472,9 @@ fun AdminScreen() {
                             editingProductId = product.id
                             adminMessage = "Mode edit: ${product.name}"
                         },
+                        onRestockProduct = { product ->
+                            restockProduct = product
+                        },
                         onDeleteProduct = { product ->
                             deletingProduct = product
                         }
@@ -1497,6 +1511,9 @@ fun AdminScreen() {
                         editingProductId = product.id
                         adminMessage = "Mode edit: ${product.name}"
                     },
+                    onRestockProduct = { product ->
+                        restockProduct = product
+                    },
                     onDeleteProduct = { product ->
                         deletingProduct = product
                     }
@@ -1506,22 +1523,16 @@ fun AdminScreen() {
     }
 
     deletingProduct?.let { product ->
-
         AlertDialog(
             onDismissRequest = {
                 deletingProduct = null
             },
-
             title = {
                 Text("Hapus Produk")
             },
-
             text = {
-                Text(
-                    "Yakin ingin menghapus ${product.name}?"
-                )
+                Text("Yakin ingin menghapus ${product.name}?")
             },
-
             dismissButton = {
                 OutlinedButton(
                     onClick = {
@@ -1531,26 +1542,19 @@ fun AdminScreen() {
                     Text("Batal")
                 }
             },
-
             confirmButton = {
                 Button(
                     onClick = {
-
                         scope.launch {
-
                             try {
-
                                 val response =
                                     RetrofitClient.api.deleteProduct(product.id)
 
                                 adminMessage = response.message
-
                                 reloadProducts()
 
                             } catch (e: Exception) {
-
-                                adminMessage =
-                                    "Gagal hapus: ${e.message}"
+                                adminMessage = "Gagal hapus: ${e.message}"
                             }
 
                             deletingProduct = null
@@ -1562,14 +1566,82 @@ fun AdminScreen() {
             }
         )
     }
+
+    restockProduct?.let { product ->
+        AlertDialog(
+            onDismissRequest = {
+                restockProduct = null
+                restockAmount = ""
+            },
+            title = {
+                Text("Tambah Stock")
+            },
+            text = {
+                Column {
+                    Text("Stock sekarang: ${product.stock}")
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = restockAmount,
+                        onValueChange = {
+                            restockAmount = it
+                        },
+                        label = {
+                            Text("Tambah stock")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        restockProduct = null
+                        restockAmount = ""
+                    }
+                ) {
+                    Text("Batal")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                RetrofitClient.api.restockProduct(
+                                    product.id,
+                                    RestockRequest(
+                                        add_stock = restockAmount.toInt()
+                                    )
+                                )
+
+                                reloadProducts()
+                                adminMessage = "Stock berhasil ditambahkan"
+
+                            } catch (e: Exception) {
+                                adminMessage = "Gagal restock: ${e.message}"
+                            }
+
+                            restockProduct = null
+                            restockAmount = ""
+                        }
+                    }
+                ) {
+                    Text("Tambah")
+                }
+            }
+        )
+    }
 }
+
 
 @Composable
 fun AdminManagementContent(
     products: List<Product>,
-    categoriesData: List<Category>,
     productName: String,
     productPrice: String,
+    categoriesData: List<Category>,
     selectedCategoryId: Int?,
     editingProductId: Int?,
     adminMessage: String?,
@@ -1578,53 +1650,58 @@ fun AdminManagementContent(
     onCategorySelected: (Int) -> Unit,
     onSubmit: () -> Unit,
     onEditProduct: (Product) -> Unit,
+    onRestockProduct: (Product) -> Unit,
     onDeleteProduct: (Product) -> Unit
 ) {
-    Text(
-        text = "Admin Produk",
-        style = MaterialTheme.typography.headlineMedium
-    )
 
-    Spacer(modifier = Modifier.height(16.dp))
+    Column {
 
-    AdminProductForm(
-        productName = productName,
-        productPrice = productPrice,
-        categoriesData = categoriesData,
-        selectedCategoryId = selectedCategoryId,
-        editingProductId = editingProductId,
-        adminMessage = adminMessage,
-        onProductNameChange = onProductNameChange,
-        onProductPriceChange = onProductPriceChange,
-        onCategorySelected = onCategorySelected,
-        onSubmit = onSubmit,
-        onCancelEdit = {
-            onProductNameChange("")
-            onProductPriceChange("")
-        }
-    )
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    Text(
-        text = "Daftar Produk",
-        style = MaterialTheme.typography.headlineSmall
-    )
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    products.forEach { product ->
-        ProductCard(
-            product = product,
-            isAdmin = true,
-            onAddToCart = {},
-            onEditProduct = {
-                onEditProduct(product)
-            },
-            onDeleteProduct = {
-                onDeleteProduct(product)
+        AdminProductForm(
+            productName = productName,
+            productPrice = productPrice,
+            categoriesData = categoriesData,
+            selectedCategoryId = selectedCategoryId,
+            editingProductId = editingProductId,
+            adminMessage = adminMessage,
+            onProductNameChange = onProductNameChange,
+            onProductPriceChange = onProductPriceChange,
+            onCategorySelected = onCategorySelected,
+            onSubmit = onSubmit,
+            onCancelEdit = {
+                onProductNameChange("")
+                onProductPriceChange("")
             }
         )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Daftar Produk",
+            style = MaterialTheme.typography.headlineSmall
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        products.forEach { product ->
+
+            ProductCard(
+                product = product,
+                isAdmin = true,
+                onAddToCart = {},
+
+                onEditProduct = {
+                    onEditProduct(product)
+                },
+
+                onRestockProduct = {
+                    onRestockProduct(product)
+                },
+
+                onDeleteProduct = {
+                    onDeleteProduct(product)
+                }
+            )
+        }
     }
 }
 

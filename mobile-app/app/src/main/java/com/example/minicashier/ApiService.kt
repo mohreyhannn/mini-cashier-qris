@@ -118,6 +118,17 @@ data class LoginResponse(
     val user: UserData
 )
 
+data class RestockRequest(
+    val add_stock: Int
+)
+
+data class RestockResponse(
+    val message: String,
+    val product_id: Int,
+    val name: String,
+    val stock: Int
+)
+
 interface ApiService {
 
     @GET("products/")
@@ -171,4 +182,10 @@ interface ApiService {
     suspend fun login(
         @Body request: LoginRequest
     ): LoginResponse
+
+    @PUT("products/{id}/restock")
+    suspend fun restockProduct(
+        @Path("id") id: Int,
+        @Body request: RestockRequest
+    ): RestockResponse
 }
