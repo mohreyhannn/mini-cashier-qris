@@ -129,6 +129,11 @@ data class RestockResponse(
     val stock: Int
 )
 
+data class BestSellerResponse(
+    val product_name: String,
+    val total_sold: Int
+)
+
 interface ApiService {
 
     @GET("products/")
@@ -188,4 +193,7 @@ interface ApiService {
         @Path("id") id: Int,
         @Body request: RestockRequest
     ): RestockResponse
+
+    @GET("transactions/best-sellers")
+    suspend fun getBestSellers(): List<BestSellerResponse>
 }

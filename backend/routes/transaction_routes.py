@@ -288,6 +288,39 @@ def create_transaction():
     finally:
         cur.close()
         conn.close()
+        
+@transaction_bp.route("/best-sellers", methods=["GET"])
+def best_sellers():
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            p.name,
+            SUM(ti.quantity) AS total_sold
+        FROM transaction_items ti
+        JOIN products p
+            ON ti.product_id = p.id
+        GROUP BY p.name
+        ORDER BY total_sold DESC
+        LIMIT 5
+    """)
+
+    rows = cur.fetchall()
+
+    result = []
+
+    for row in rows:
+        result.append({
+            "product_name": row[0],
+            "total_sold": row[1]
+        })
+
+    cur.close()
+    conn.close()
+
+    return jsonify(result)
 
 @transaction_bp.route("/<int:id>/pay", methods=["PUT"])
 def pay_transaction(id):
@@ -363,3 +396,4 @@ def dashboard_summary():
             "total_price": last_transaction[1] if last_transaction else 0
         }
     })
+    

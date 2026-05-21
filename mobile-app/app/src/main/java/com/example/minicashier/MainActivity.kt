@@ -175,6 +175,9 @@ fun ProductScreen(
     }
 
     var dashboard by remember { mutableStateOf<DashboardResponse?>(null) }
+    var bestSellers by remember {
+        mutableStateOf<List<BestSellerResponse>>(emptyList())
+    }
 
     var productName by remember { mutableStateOf("") }
     var productPrice by remember { mutableStateOf("") }
@@ -187,6 +190,8 @@ fun ProductScreen(
             products = RetrofitClient.api.getProducts()
             categoriesData = RetrofitClient.api.getCategories()
             dashboard = RetrofitClient.api.getDashboard()
+            bestSellers =
+                RetrofitClient.api.getBestSellers()
         } catch (e: Exception) {
             error = e.message
         } finally {
@@ -1365,12 +1370,16 @@ fun AdminScreen() {
         mutableStateOf("")
     }
     var dashboard by remember { mutableStateOf<DashboardResponse?>(null) }
+    var bestSellers by remember {
+        mutableStateOf<List<BestSellerResponse>>(emptyList())
+    }
 
     val scope = rememberCoroutineScope()
 
     suspend fun reloadProducts() {
         products = RetrofitClient.api.getProducts()
         dashboard = RetrofitClient.api.getDashboard()
+        bestSellers = RetrofitClient.api.getBestSellers()
     }
 
     fun saveProduct() {
@@ -1426,6 +1435,7 @@ fun AdminScreen() {
             products = RetrofitClient.api.getProducts()
             categoriesData = RetrofitClient.api.getCategories()
             dashboard = RetrofitClient.api.getDashboard()
+            bestSellers = RetrofitClient.api.getBestSellers()
         } catch (e: Exception) {
             adminMessage = "Gagal load data: ${e.message}"
         }
@@ -1450,6 +1460,7 @@ fun AdminScreen() {
                 ) {
                     AdminManagementContent(
                         products = products,
+                        bestSellers = bestSellers,
                         categoriesData = categoriesData,
                         productName = productName,
                         productPrice = productPrice,
@@ -1489,6 +1500,7 @@ fun AdminScreen() {
             ) {
                 AdminManagementContent(
                     products = products,
+                    bestSellers = bestSellers,
                     categoriesData = categoriesData,
                     productName = productName,
                     productPrice = productPrice,
@@ -1521,6 +1533,7 @@ fun AdminScreen() {
             }
         }
     }
+
 
     deletingProduct?.let { product ->
         AlertDialog(
@@ -1635,10 +1648,49 @@ fun AdminScreen() {
     }
 }
 
+@Composable
+fun BestSellerCard(
+    bestSellers: List<BestSellerResponse>
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "🔥 Best Seller",
+                style = MaterialTheme.typography.headlineSmall
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (bestSellers.isEmpty()) {
+                Text("Belum ada data penjualan")
+            } else {
+                bestSellers.forEachIndexed { index, item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("${index + 1}. ${item.product_name}")
+                        Text("${item.total_sold}x")
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 @Composable
 fun AdminManagementContent(
     products: List<Product>,
+    bestSellers: List<BestSellerResponse>,
     productName: String,
     productPrice: String,
     categoriesData: List<Category>,
@@ -1655,6 +1707,9 @@ fun AdminManagementContent(
 ) {
 
     Column {
+        BestSellerCard(bestSellers = bestSellers)
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         AdminProductForm(
             productName = productName,
