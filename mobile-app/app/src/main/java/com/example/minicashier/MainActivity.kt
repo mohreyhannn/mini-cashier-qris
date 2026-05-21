@@ -39,6 +39,10 @@ import androidx.compose.animation.slideInVertically
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import android.os.Environment
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.tween
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import com.example.minicashier.ui.theme.MiniCashierTheme
@@ -56,6 +60,76 @@ sealed class Screen(val route: String) {
     object Home : Screen("home")
     object History : Screen("history")
     object Admin : Screen("admin")
+}
+
+data class AppPopup(
+    val title: String,
+    val message: String,
+    val icon: String = "✅"
+)
+
+@Composable
+fun AppPopupDialog(
+    popup: AppPopup?,
+    onDismiss: () -> Unit
+) {
+    popup?.let {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = null,
+            text = {
+                AnimatedVisibility(
+                    visible = true,
+                    enter = scaleIn(
+                        animationSpec = tween(350),
+                        initialScale = 0.75f
+                    ) + fadeIn(animationSpec = tween(350)),
+                    exit = scaleOut(
+                        animationSpec = tween(250),
+                        targetScale = 0.75f
+                    ) + fadeOut(animationSpec = tween(250))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = it.icon,
+                            fontSize = 58.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = it.title,
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = it.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Button(
+                            onClick = onDismiss,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp)
+                        ) {
+                            Text("OK")
+                        }
+                    }
+                }
+            },
+            confirmButton = {}
+        )
+    }
 }
 
 data class CartItem(
@@ -96,7 +170,9 @@ fun ProductScreen(
     var paymentMessage by remember { mutableStateOf<String?>(null) }
     var receiptInvoiceCode by remember { mutableStateOf<String?>(null) }
     var receiptTotalPrice by remember { mutableStateOf<Int?>(null) }
-    var showSuccessDialog by remember { mutableStateOf(false) }
+    var appPopup by remember {
+        mutableStateOf<AppPopup?>(null)
+    }
 
     var dashboard by remember { mutableStateOf<DashboardResponse?>(null) }
 
@@ -575,15 +651,24 @@ fun ProductScreen(
                                     )
 
                                     paymentMessage = response.message
+                                    appPopup = AppPopup(
+                                        title = "Pembayaran Berhasil",
+                                        message = "Struk pembayaran berhasil dibuat",
+                                        icon = "💰"
+                                    )
                                     receiptInvoiceCode = currentInvoiceCode
                                     receiptTotalPrice = currentTotalPrice
-                                    showSuccessDialog = true
                                     currentTransactionId = null
                                     dashboard = RetrofitClient.api.getDashboard()
 
                                 } catch (e: Exception) {
                                     paymentMessage =
                                         "Pembayaran gagal: ${e.message}"
+                                    appPopup = AppPopup(
+                                        title = "Pembayaran Gagal",
+                                        message = "Silakan coba lagi",
+                                        icon = "❌"
+                                    )
                                 }
                             }
                         }
@@ -601,33 +686,6 @@ fun ProductScreen(
                     ReceiptCard(
                         invoiceCode = receiptInvoiceCode,
                         totalPrice = receiptTotalPrice
-                    )
-                }
-                if (showSuccessDialog) {
-                    AlertDialog(
-                        onDismissRequest = {
-                            showSuccessDialog = false
-                        },
-                        title = {
-                            Text("Pembayaran Berhasil")
-                        },
-                        text = {
-                            Column {
-                                Text("Invoice: ${receiptInvoiceCode ?: "-"}")
-                                Text("Total: ${formatRupiah(receiptTotalPrice ?: 0)}")
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Struk pembayaran sudah dibuat.")
-                            }
-                        },
-                        confirmButton = {
-                            Button(
-                                onClick = {
-                                    showSuccessDialog = false
-                                }
-                            ) {
-                                Text("Lihat Struk")
-                            }
-                        }
                     )
                 }
             }
@@ -679,6 +737,13 @@ fun ProductScreen(
             }
         }
     }
+
+    AppPopupDialog(
+        popup = appPopup,
+        onDismiss = {
+            appPopup = null
+        }
+    )
 }
 
 @Composable
@@ -796,7 +861,8 @@ fun AdminProductForm(
     onProductNameChange: (String) -> Unit,
     onProductPriceChange: (String) -> Unit,
     onCategorySelected: (Int) -> Unit,
-    onSubmit: () -> Unit
+    onSubmit: () -> Unit,
+    onCancelEdit: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -858,6 +924,17 @@ fun AdminProductForm(
                     else
                         "Update Produk"
                 )
+            }
+
+            if (editingProductId != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedButton(
+                    onClick = onCancelEdit,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Batal Edit")
+                }
             }
 
             adminMessage?.let {
@@ -1042,10 +1119,13 @@ fun MainNavigation(
 fun LoginScreen(
     onLoginSuccess: (UserData) -> Unit
 ) {
-
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    var appPopup by remember {
+        mutableStateOf<AppPopup?>(null)
+    }
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -1053,92 +1133,100 @@ fun LoginScreen(
         SessionManager(context)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "Mini Cashier Login",
+                style = MaterialTheme.typography.headlineMedium
+            )
 
-        Text(
-            text = "Mini Cashier Login",
-            style = MaterialTheme.typography.headlineMedium
-        )
+            Spacer(modifier = Modifier.height(24.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Username") },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        OutlinedTextField(
-            value = username,
-            onValueChange = {
-                username = it
-            },
-            label = {
-                Text("Username")
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
+            Spacer(modifier = Modifier.height(12.dp))
 
-        Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        OutlinedTextField(
-            value = password,
-            onValueChange = {
-                password = it
-            },
-            label = {
-                Text("Password")
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
+            Spacer(modifier = Modifier.height(24.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = {
-
-                scope.launch {
-
-                    try {
-
-                        val response =
-                            RetrofitClient.api.login(
+            Button(
+                onClick = {
+                    scope.launch {
+                        try {
+                            val response = RetrofitClient.api.login(
                                 LoginRequest(
                                     username = username,
                                     password = password
                                 )
                             )
 
-                        sessionManager.saveLogin(
-                            username = response.user.username,
-                            role = response.user.role
-                        )
+                            sessionManager.saveLogin(
+                                username = response.user.username,
+                                role = response.user.role
+                            )
 
-                        onLoginSuccess(response.user)
+                            appPopup = AppPopup(
+                                title = "Login Berhasil",
+                                message = "Selamat datang ${response.user.username}",
+                                icon = "✅"
+                            )
 
-                    } catch (e: Exception) {
+                            kotlinx.coroutines.delay(800)
+                            onLoginSuccess(response.user)
 
-                        errorMessage =
-                            "Login gagal: ${e.message}"
+                        } catch (e: Exception) {
+                            errorMessage = "Login gagal: ${e.message}"
+
+                            appPopup = AppPopup(
+                                title = "Login Gagal",
+                                message = "Cek username/password",
+                                icon = "❌"
+                            )
+                        }
                     }
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Login")
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Login")
+            }
+
+            errorMessage?.let {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
 
-        if (errorMessage != null) {
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = errorMessage!!,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
+        AppPopupDialog(
+            popup = appPopup,
+            onDismiss = {
+                appPopup = null
+            }
+        )
     }
 }
-
 fun getProductImageUrl(productName: String): String {
     val name = productName.lowercase()
 
@@ -1175,81 +1263,68 @@ fun ProductCard(
     onEditProduct: () -> Unit,
     onDeleteProduct: () -> Unit
 ) {
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
-
         shape = RoundedCornerShape(20.dp),
-
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 8.dp
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-
-        AsyncImage(
-            model = getProductImageUrl(product.name),
-            contentDescription = product.name,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(150.dp),
-            contentScale = ContentScale.Crop
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = product.name,
-                style = MaterialTheme.typography.titleLarge
+        Column {
+            AsyncImage(
+                model = getProductImageUrl(product.name),
+                contentDescription = product.name,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp),
+                contentScale = ContentScale.Crop
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = product.category,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = formatRupiah(product.price),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                modifier = Modifier.padding(16.dp)
             ) {
+                Text(product.name, style = MaterialTheme.typography.titleLarge)
 
-                Button(
-                    onClick = onAddToCart,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("+ Tambah")
-                }
+                Spacer(modifier = Modifier.height(4.dp))
 
-                if (isAdmin) {
+                Text(
+                    text = product.category,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
 
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = formatRupiah(product.price),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = onEditProduct
+                        onClick = onAddToCart,
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Text("Edit")
+                        Text("+ Tambah")
                     }
 
-                    Button(
-                        onClick = onDeleteProduct
-                    ) {
-                        Text("Hapus")
+                    if (isAdmin) {
+                        Button(onClick = onEditProduct) {
+                            Text("Edit")
+                        }
+
+                        Button(onClick = onDeleteProduct) {
+                            Text("Hapus")
+                        }
                     }
                 }
             }
         }
     }
+}
 
 @Composable
 fun TransactionHistoryScreen(
@@ -1522,7 +1597,11 @@ fun AdminManagementContent(
         onProductNameChange = onProductNameChange,
         onProductPriceChange = onProductPriceChange,
         onCategorySelected = onCategorySelected,
-        onSubmit = onSubmit
+        onSubmit = onSubmit,
+        onCancelEdit = {
+            onProductNameChange("")
+            onProductPriceChange("")
+        }
     )
 
     Spacer(modifier = Modifier.height(16.dp))
@@ -1687,11 +1766,7 @@ fun PaymentCard(
             )
 
             Text("Invoice: ${invoiceCode ?: "-"}")
-            Text(
-                "Total: ${
-                    formatRupiah(totalPrice ?: 0)
-                }"
-            )
+            Text("Total: ${formatRupiah(totalPrice ?: 0)}")
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -1701,10 +1776,7 @@ fun PaymentCard(
                 generateQrCode(qrText)
             }
 
-            Text(
-                text = "Scan QR untuk bayar",
-                fontSize = 16.sp
-            )
+            Text(text = "Scan QR untuk bayar", fontSize = 16.sp)
 
             Spacer(modifier = Modifier.height(12.dp))
 
