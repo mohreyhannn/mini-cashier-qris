@@ -48,6 +48,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.scale
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.RestaurantMenu
 import coil.compose.AsyncImage
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -65,7 +67,7 @@ import androidx.compose.foundation.background
 sealed class Screen(val route: String) {
     object Home : Screen("home")
     object History : Screen("history")
-    object Admin : Screen("admin")
+    object Insight : Screen("insight")
 }
 
 data class AppPopup(
@@ -154,6 +156,86 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+@Composable
+fun LoadingProductSkeleton() {
+    var startAnimation by remember { mutableStateOf(false) }
+
+    val alpha by animateFloatAsState(
+        targetValue = if (startAnimation) 0.35f else 0.9f,
+        animationSpec = tween(
+            durationMillis = 700
+        ),
+        label = "skeletonAlpha"
+    )
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            startAnimation = !startAnimation
+            kotlinx.coroutines.delay(700)
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = alpha)
+                    )
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .height(22.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = alpha)
+                    )
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.45f)
+                    .height(16.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = alpha)
+                    )
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = alpha)
+                    )
+            )
+        }
+    }
+}
 
 @Composable
 fun ProductScreen(
@@ -296,23 +378,12 @@ fun ProductScreen(
 
         when {
             loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 40.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        CircularProgressIndicator()
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                Column {
 
-                        Text(
-                            text = "Memuat menu...",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                    repeat(3) {
+
+                        LoadingProductSkeleton()
                     }
                 }
             }
@@ -1127,7 +1198,7 @@ fun MainNavigation(
     val scope = rememberCoroutineScope()
 
     val startRoute =
-        if (user.role == "ADMIN") "admin" else "home"
+        if (user.role == "ADMIN") "insight" else "home"
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -1192,6 +1263,27 @@ fun MainNavigation(
                         }
                     )
 
+                    NavigationBarItem(
+                        selected = currentRoute == "insight",
+                        onClick = {
+                            navController.navigate("insight")
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        label = { Text("Insight") },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.BarChart,
+                                contentDescription = "Insight"
+                            )
+                        }
+                    )
+
                     if (user.role == "ADMIN") {
                         NavigationBarItem(
                             selected = currentRoute == "admin",
@@ -1205,10 +1297,10 @@ fun MainNavigation(
                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
-                            label = { Text("Admin") },
+                            label = { Text("Produk") },
                             icon = {
                                 Icon(
-                                    imageVector = Icons.Default.AdminPanelSettings,
+                                    imageVector = Icons.Default.RestaurantMenu,
                                     contentDescription = "Admin"
                                 )
                             }
@@ -1256,6 +1348,10 @@ fun MainNavigation(
 
             composable("history") {
                 TransactionHistoryScreen(user = user)
+            }
+
+            composable("insight") {
+                InsightScreen()
             }
 
             composable("admin") {
@@ -1559,6 +1655,209 @@ fun TransactionHistoryScreen(
             .padding(16.dp)
     ) {
         HistoryScreen(user = user)
+    }
+}
+
+@Composable
+fun ModernPeriodTabs(
+    selectedTab: Int,
+    tabs: List<String>,
+    onTabSelected: (Int) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Row(
+            modifier = Modifier.padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            tabs.forEachIndexed { index, title ->
+                val selected = selectedTab == index
+
+                Button(
+                    onClick = { onTabSelected(index) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (selected)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            Color.Transparent,
+                        contentColor = if (selected)
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.primary
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = if (selected) 4.dp else 0.dp
+                    )
+                ) {
+                    Text(title)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InsightScreen() {
+    var dashboard by remember { mutableStateOf<DashboardResponse?>(null) }
+    var bestSellers by remember { mutableStateOf<List<BestSellerResponse>>(emptyList()) }
+
+    var dailyReports by remember { mutableStateOf<List<DailyReportResponse>>(emptyList()) }
+    var monthlyReports by remember { mutableStateOf<List<MonthlyReportResponse>>(emptyList()) }
+    var yearlyReports by remember { mutableStateOf<List<YearlyReportResponse>>(emptyList()) }
+
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabs = listOf("Harin", "Bulanan", "Tahunan")
+
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        try {
+            dashboard = RetrofitClient.api.getDashboard()
+            bestSellers = RetrofitClient.api.getBestSellers()
+            dailyReports = RetrofitClient.api.getDailyReports()
+            monthlyReports = RetrofitClient.api.getMonthlyReports()
+            yearlyReports = RetrofitClient.api.getYearlyReports()
+        } catch (e: Exception) {
+            error = e.message
+        } finally {
+            loading = false
+        }
+    }
+
+    fun currentChartData(): List<Pair<String, Int>> {
+        return when (selectedTab) {
+            0 -> dailyReports.map { it.date to it.total_income }
+            1 -> monthlyReports.map { it.month to it.total_income }
+            else -> yearlyReports.map { it.year.toString() to it.total_income }
+        }
+    }
+
+    fun currentChartTitle(): String {
+        return when (selectedTab) {
+            0 -> "Grafik Income Harian"
+            1 -> "Grafik Income Bulanan"
+            else -> "Grafik Income Tahunan"
+        }
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        val isTablet = maxWidth > 700.dp
+
+        when {
+            loading -> LoadingHistorySkeleton()
+            error != null -> Text("Error: $error")
+            isTablet -> {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Business Insight",
+                            style = MaterialTheme.typography.headlineMedium
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        dashboard?.let {
+                            DashboardCard(dashboard = it)
+                        }
+
+                        BestSellerCard(bestSellers = bestSellers)
+                    }
+
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Income Analytics",
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        ModernPeriodTabs(
+                            selectedTab = selectedTab,
+                            tabs = tabs,
+                            onTabSelected = { selectedTab = it }
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        AnalyticsBarChart(
+                            title = currentChartTitle(),
+                            data = currentChartData()
+                        )
+                    }
+                }
+            }
+            else -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = "Business Insight",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    dashboard?.let {
+                        DashboardCard(dashboard = it)
+                    }
+
+                    BestSellerCard(bestSellers = bestSellers)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(28.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Income Analytics",
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            ModernPeriodTabs(
+                                selectedTab = selectedTab,
+                                tabs = tabs,
+                                onTabSelected = {
+                                    selectedTab = it
+                                }
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            AnalyticsBarChart(
+                                title = currentChartTitle(),
+                                data = currentChartData()
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(120.dp))
+                }
+            }
+        }
     }
 }
 
@@ -1969,80 +2268,165 @@ fun AdminManagementContent(
     onRestockProduct: (Product) -> Unit,
     onDeleteProduct: (Product) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            )
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = "Admin Dashboard",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        val isTablet = maxWidth > 700.dp
 
-                Text(
-                    text = "Kelola produk, stock, dan penjualan",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-        }
+        if (isTablet) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1.4f)
+                        .fillMaxHeight()
+                ) {
+                    Text(
+                        text = "Daftar Produk",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
 
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-        ) {
-            dashboard?.let {
-                DashboardCard(dashboard = it)
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+                    Text(
+                        text = "Kelola menu yang tersedia",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
 
-            BestSellerCard(bestSellers = bestSellers)
+                    Spacer(modifier = Modifier.height(12.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        products.forEach { product ->
+                            ProductCard(
+                                product = product,
+                                isAdmin = true,
+                                onAddToCart = {},
+                                onEditProduct = { onEditProduct(product) },
+                                onRestockProduct = { onRestockProduct(product) },
+                                onDeleteProduct = { onDeleteProduct(product) }
+                            )
+                        }
 
-            AdminProductForm(
-                productName = productName,
-                productPrice = productPrice,
-                categoriesData = categoriesData,
-                selectedCategoryId = selectedCategoryId,
-                editingProductId = editingProductId,
-                adminMessage = adminMessage,
-                onProductNameChange = onProductNameChange,
-                onProductPriceChange = onProductPriceChange,
-                onCategorySelected = onCategorySelected,
-                onSubmit = onSubmit,
-                onCancelEdit = {
-                    onProductNameChange("")
-                    onProductPriceChange("")
+                        Spacer(modifier = Modifier.height(100.dp))
+                    }
                 }
-            )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    Text(
+                        text = if (editingProductId == null)
+                            "Tambah Menu"
+                        else
+                            "Edit Menu",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
 
-            Text(
-                text = "Daftar Produk",
-                style = MaterialTheme.typography.headlineSmall
-            )
+                    Text(
+                        text = "Atur nama, harga, dan kategori",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
 
-            Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-            products.forEach { product ->
-                ProductCard(
-                    product = product,
-                    isAdmin = true,
-                    onAddToCart = {},
-                    onEditProduct = { onEditProduct(product) },
-                    onRestockProduct = { onRestockProduct(product) },
-                    onDeleteProduct = { onDeleteProduct(product) }
-                )
+                    AdminProductForm(
+                        productName = productName,
+                        productPrice = productPrice,
+                        categoriesData = categoriesData,
+                        selectedCategoryId = selectedCategoryId,
+                        editingProductId = editingProductId,
+                        adminMessage = adminMessage,
+                        onProductNameChange = onProductNameChange,
+                        onProductPriceChange = onProductPriceChange,
+                        onCategorySelected = onCategorySelected,
+                        onSubmit = onSubmit,
+                        onCancelEdit = {
+                            onProductNameChange("")
+                            onProductPriceChange("")
+                        }
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Produk Menu",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+
+                        Text(
+                            text = "Tambah dan kelola produk",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    AdminProductForm(
+                        productName = productName,
+                        productPrice = productPrice,
+                        categoriesData = categoriesData,
+                        selectedCategoryId = selectedCategoryId,
+                        editingProductId = editingProductId,
+                        adminMessage = adminMessage,
+                        onProductNameChange = onProductNameChange,
+                        onProductPriceChange = onProductPriceChange,
+                        onCategorySelected = onCategorySelected,
+                        onSubmit = onSubmit,
+                        onCancelEdit = {
+                            onProductNameChange("")
+                            onProductPriceChange("")
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Daftar Produk",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    products.forEach { product ->
+                        ProductCard(
+                            product = product,
+                            isAdmin = true,
+                            onAddToCart = {},
+                            onEditProduct = { onEditProduct(product) },
+                            onRestockProduct = { onRestockProduct(product) },
+                            onDeleteProduct = { onDeleteProduct(product) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(100.dp))
+                }
             }
         }
     }
@@ -2397,6 +2781,114 @@ fun EmptyState(
 }
 
 @Composable
+fun LoadingHistorySkeleton() {
+
+    Column {
+
+        repeat(3) {
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+
+                shape = RoundedCornerShape(24.dp),
+
+                colors = CardDefaults.cardColors(
+                    containerColor =
+                        MaterialTheme.colorScheme.surface
+                )
+            ) {
+
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+
+                    Box(
+                        modifier = Modifier
+                            .size(58.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(
+                                MaterialTheme.colorScheme.primary
+                                    .copy(alpha = 0.25f)
+                            )
+                    )
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.6f)
+                                .height(20.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    MaterialTheme.colorScheme.primary
+                                        .copy(alpha = 0.25f)
+                                )
+                        )
+
+                        Spacer(
+                            modifier = Modifier.height(10.dp)
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.4f)
+                                .height(16.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    MaterialTheme.colorScheme.primary
+                                        .copy(alpha = 0.18f)
+                                )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PeriodHeader(
+    title: String,
+    count: Int
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 10.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 14.dp,
+                vertical = 10.dp
+            ),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Text(
+                text = "$count transaksi",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
 fun HistoryScreen(
     user: UserData
 ) {
@@ -2493,16 +2985,45 @@ fun HistoryScreen(
             modifier = modifier.verticalScroll(rememberScrollState())
         ) {
             when {
-                loading -> Text("Memuat riwayat...")
+                loading -> LoadingHistorySkeleton()
+
                 error != null -> Text("Error: $error")
+
                 filteredTransactions().isEmpty() -> EmptyState(
                     icon = "📦",
                     title = "Belum ada transaksi",
                     message = "Transaksi yang sudah dibayar akan muncul di sini"
                 )
+
                 else -> {
-                    filteredTransactions().forEach { transaction ->
-                        TransactionDetailCard(transaction = transaction)
+                    val groupedTransactions =
+                        when (selectedTab) {
+                            0 -> filteredTransactions()
+                                .groupBy { it.created_at.take(10) }
+
+                            1 -> filteredTransactions()
+                                .groupBy { it.created_at.take(7) }
+
+                            else -> filteredTransactions()
+                                .groupBy { it.created_at.take(4) }
+                        }
+
+                    groupedTransactions.forEach { group ->
+
+                        PeriodHeader(
+                            title = when (selectedTab) {
+                                0 -> formatTransactionDate(group.key)
+                                1 -> formatMonthYear(group.key)
+                                else -> "Tahun ${group.key}"
+                            },
+                            count = group.value.size
+                        )
+
+                        group.value.forEach { transaction ->
+                            TransactionDetailCard(transaction = transaction)
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
                     }
                 }
             }
@@ -2519,61 +3040,50 @@ fun HistoryScreen(
         val isWide = maxWidth > 700.dp
 
         if (isWide) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(16.dp)
             ) {
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = "Riwayat Transaksi",
-                        style = MaterialTheme.typography.headlineSmall
-                    )
+                Text(
+                    text = "Riwayat Transaksi",
+                    style = MaterialTheme.typography.headlineMedium
+                )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                    TransactionListSection(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    )
-                }
-
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = "Analytics Center",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    TabRow(selectedTabIndex = selectedTab) {
-                        tabs.forEachIndexed { index, title ->
-                            Tab(
-                                selected = selectedTab == index,
-                                onClick = {
-                                    selectedTab = index
-                                    loadData(index)
-                                },
-                                text = { Text(title) }
-                            )
-                        }
+                ModernPeriodTabs(
+                    selectedTab = selectedTab,
+                    tabs = tabs,
+                    onTabSelected = {
+                        selectedTab = it
+                        loadData(it)
                     }
+                )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                    if (user.role == "ADMIN" && !loading && error == null) {
-                        AnalyticsBarChart(
-                            title = currentChartTitle(),
-                            data = currentChartData()
+                OutlinedTextField(
+                    value = historySearchQuery,
+                    onValueChange = { historySearchQuery = it },
+                    label = { Text("Cari invoice / produk...") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search"
                         )
-                    }
-                }
+                    },
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                TransactionListSection(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                )
             }
         } else {
             Column(
@@ -2589,29 +3099,14 @@ fun HistoryScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                TabRow(selectedTabIndex = selectedTab) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTab == index,
-                            onClick = {
-                                selectedTab = index
-                                loadData(index)
-                            },
-                            text = { Text(title) }
-                        )
+                ModernPeriodTabs(
+                    selectedTab = selectedTab,
+                    tabs = tabs,
+                    onTabSelected = {
+                        selectedTab = it
+                        loadData(it)
                     }
-                }
-
-                if (user.role == "ADMIN") {
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (!loading && error == null) {
-                        AnalyticsBarChart(
-                            title = currentChartTitle(),
-                            data = currentChartData()
-                        )
-                    }
-                }
+                )
 
                 OutlinedTextField(
                     value = historySearchQuery,
@@ -2986,6 +3481,15 @@ fun formatTransactionDate(value: String): String {
     return if (dateOnly.length >= 10 && dateOnly.contains("-")) {
         val parts = dateOnly.split("-")
         "${parts[2]} ${monthName(parts[1])} ${parts[0]}"
+    } else {
+        value
+    }
+}
+
+fun formatMonthYear(value: String): String {
+    return if (value.length >= 7 && value.contains("-")) {
+        val parts = value.split("-")
+        "${monthName(parts[1])} ${parts[0]}"
     } else {
         value
     }
