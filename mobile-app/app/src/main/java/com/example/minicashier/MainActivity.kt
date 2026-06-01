@@ -8,7 +8,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.navigation.NavController
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,9 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.Icon
@@ -1247,7 +1253,9 @@ fun DashboardCard(
 }
 
 @Composable
-fun ShiftHistoryScreen() {
+fun ShiftHistoryScreen(
+    navController: NavController
+) {
     var shifts by remember { mutableStateOf<List<ShiftHistoryData>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1268,12 +1276,26 @@ fun ShiftHistoryScreen() {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BackButtonPremium(
+                onClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
         Text(
             text = "Riwayat Shift",
             style = MaterialTheme.typography.headlineMedium
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Pantau aktivitas buka dan tutup shift kasir",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
 
         when {
             loading -> LoadingHistorySkeleton()
@@ -1288,47 +1310,143 @@ fun ShiftHistoryScreen() {
 
             else -> {
                 shifts.forEach { shift ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 14.dp),
-                        shape = RoundedCornerShape(26.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = shift.cashier_name,
-                                style = MaterialTheme.typography.titleLarge
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Text("Status: ${shift.status}")
-                            Text("Mulai: ${formatFullDate(shift.start_time)}")
-                            Text("Selesai: ${shift.end_time?.let { formatFullDate(it) } ?: "-"}")
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Divider()
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Text("Kas Awal: ${formatRupiah(shift.opening_cash)}")
-                            Text("Kas Akhir: ${formatRupiah(shift.closing_cash)}")
-                            Text(
-                                text = "Total Sales: ${formatRupiah(shift.total_sales)}",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
+                    ShiftHistoryCard(shift)
+                    Spacer(modifier = Modifier.height(14.dp))
                 }
 
                 Spacer(modifier = Modifier.height(100.dp))
             }
         }
+    }
+}
+
+@Composable
+fun ShiftHistoryCard(
+    shift: ShiftHistoryData
+) {
+    val isOpen = shift.status == "OPEN"
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(54.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    color = if (isOpen)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Text(
+                            text = if (isOpen) "🟢" else "✅",
+                            fontSize = 24.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = shift.cashier_name,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+
+                    Text(
+                        text = if (isOpen) "Shift sedang berjalan" else "Shift selesai",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = if (isOpen)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(
+                        text = shift.status,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        color = if (isOpen)
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.onSecondaryContainer,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Divider()
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            ShiftInfoRow("Mulai", formatFullDate(shift.start_time))
+            ShiftInfoRow("Selesai", shift.end_time?.let { formatFullDate(it) } ?: "-")
+            ShiftInfoRow("Kas Awal", formatRupiah(shift.opening_cash))
+            ShiftInfoRow("Kas Akhir", formatRupiah(shift.closing_cash))
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Total Sales",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Text(
+                        text = formatRupiah(shift.total_sales),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ShiftInfoRow(
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 5.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
 
@@ -1631,28 +1749,28 @@ fun MainNavigation(
                         )
                     }
 
-                    if (user.role == "ADMIN") {
-                        NavigationBarItem(
-                            selected = currentRoute == "shift_history",
-                            onClick = {
-                                navController.navigate("shift_history")
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.primary,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            ),
-                            label = { Text("Shift") },
-                            icon = {
-                                Icon(
-                                    imageVector = Icons.Default.History,
-                                    contentDescription = "Shift History"
-                                )
-                            }
-                        )
-                    }
+                    NavigationBarItem(
+                        selected = currentRoute == "operational",
+                        onClick = {
+                            navController.navigate("operational")
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        label = {
+                            Text("Operasional")
+                        },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Operasional"
+                            )
+                        }
+                    )
 
                     NavigationBarItem(
                         selected = false,
@@ -1706,8 +1824,16 @@ fun MainNavigation(
                 AdminScreen()
             }
 
+            composable("operational") {
+                OperationalScreen(navController)
+            }
+
             composable("shift_history") {
-                ShiftHistoryScreen()
+                ShiftHistoryScreen(navController)
+            }
+
+            composable("cashier_summary") {
+                CashierSummaryScreen(navController)
             }
         }
     }
@@ -1995,6 +2121,314 @@ fun ProductCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun CashierSummaryScreen(
+    navController: NavController
+) {
+
+    var summaries by remember {
+        mutableStateOf<List<CashierSummaryData>>(emptyList())
+    }
+
+    var loading by remember {
+        mutableStateOf(true)
+    }
+
+    var error by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            summaries =
+                RetrofitClient.api.getCashierSummary()
+        } catch (e: Exception) {
+            error = e.message
+        } finally {
+            loading = false
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            IconButton(
+                onClick = {
+                    navController.popBackStack()
+                }
+            ) {
+                Icon(
+                    Icons.Default.ArrowBack,
+                    contentDescription = "Kembali"
+                )
+            }
+
+            Text(
+                text = "Laporan Kasir",
+                style = MaterialTheme.typography.headlineSmall
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        when {
+
+            loading -> {
+                CircularProgressIndicator()
+            }
+
+            error != null -> {
+                Text("Error: $error")
+            }
+
+            summaries.isEmpty() -> {
+                Text("Belum ada data kasir")
+            }
+
+            else -> {
+
+                LazyColumn {
+
+                    items(summaries) { cashier ->
+
+                        CashierSummaryCard(cashier = cashier)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CashierSummaryCard(
+    cashier: CashierSummaryData
+) {
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 14.dp),
+        shape = RoundedCornerShape(28.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(56.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Text(
+                            text = "👤",
+                            fontSize = 24.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column {
+                    Text(
+                        text = cashier.cashier_name,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+
+                    Text(
+                        text = "Kasir",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Divider()
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SummaryItem(
+                title = "Total Shift",
+                value = cashier.total_shifts.toString()
+            )
+
+            SummaryItem(
+                title = "Total Transaksi",
+                value = cashier.total_transactions.toString()
+            )
+
+            SummaryItem(
+                title = "Total Sales",
+                value = formatRupiah(cashier.total_sales)
+            )
+        }
+    }
+}
+
+@Composable
+fun SummaryItem(
+    title: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = title,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Text(
+            text = value,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+fun OperationalScreen(
+    navController: NavController
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Operasional",
+            style = MaterialTheme.typography.headlineMedium
+        )
+
+        Text(
+            text = "Kelola aktivitas kasir dan shift toko",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        OperationalMenuCard(
+            icon = "📊",
+            title = "Laporan Kasir",
+            subtitle = "Pantau performa tiap kasir",
+            onClick = {
+                navController.navigate("cashier_summary")
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OperationalMenuCard(
+            icon = "🕒",
+            title = "Riwayat Shift",
+            subtitle = "Lihat shift yang sudah dibuka dan ditutup",
+            onClick = {
+                navController.navigate("shift_history")
+            }
+        )
+    }
+}
+
+@Composable
+fun BackButtonPremium(
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.clickable {
+            onClick()
+        }
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 14.dp,
+                vertical = 10.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "←",
+                fontSize = 18.sp
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = "Kembali",
+                style = MaterialTheme.typography.titleSmall
+            )
+        }
+    }
+}
+
+@Composable
+fun OperationalMenuCard(
+    icon: String,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(26.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = icon,
+                fontSize = 34.sp
+            )
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge
+                )
+
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null
+            )
         }
     }
 }
