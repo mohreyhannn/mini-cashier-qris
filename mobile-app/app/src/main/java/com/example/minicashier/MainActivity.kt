@@ -274,6 +274,10 @@ fun ProductScreen(
     var selectedCategoryId by remember { mutableStateOf<Int?>(null) }
     var adminMessage by remember { mutableStateOf<String?>(null) }
     var editingProductId by remember { mutableStateOf<Int?>(null) }
+    var activeShiftId by remember { mutableStateOf<Int?>(null) }
+    var shiftMessage by remember { mutableStateOf<String?>(null) }
+    var openingCash by remember { mutableStateOf("") }
+    var showStartShiftDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         try {
@@ -282,6 +286,15 @@ fun ProductScreen(
             dashboard = RetrofitClient.api.getDashboard()
             bestSellers =
                 RetrofitClient.api.getBestSellers()
+            val activeShift = RetrofitClient.api.getActiveShift(user.id)
+
+            if (activeShift.active && activeShift.shift != null) {
+                activeShiftId = activeShift.shift.id
+                shiftMessage = "Shift aktif"
+            } else {
+                activeShiftId = null
+                shiftMessage = "Belum mulai shift"
+            }
         } catch (e: Exception) {
             error = e.message
         } finally {
@@ -305,6 +318,16 @@ fun ProductScreen(
     }
 
     fun checkout() {
+        if (activeShiftId == null) {
+            checkoutMessage = "Silakan mulai shift terlebih dahulu"
+            appPopup = AppPopup(
+                title = "Shift Belum Aktif",
+                message = "Mulai shift dulu sebelum melakukan checkout",
+                icon = "⚠️"
+            )
+            return
+        }
+
         scope.launch {
             try {
                 val transactionItems = cartItems.map {
@@ -317,6 +340,7 @@ fun ProductScreen(
                 val response = RetrofitClient.api.createTransaction(
                     TransactionRequest(
                         user_id = user.id,
+                        shift_id = activeShiftId!!,
                         items = transactionItems
                     )
                 )
@@ -346,6 +370,52 @@ fun ProductScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            color = if (activeShiftId != null)
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.errorContainer
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp)
+            ) {
+                Text(
+                    text = if (activeShiftId != null)
+                        "Shift Aktif"
+                    else
+                        "Shift Belum Aktif",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                Text(
+                    text = if (activeShiftId != null)
+                        "Kasir: ${user.name}"
+                    else
+                        "Mulai shift sebelum transaksi",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (activeShiftId == null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = {
+                            showStartShiftDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Mulai Shift")
+                    }
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -787,6 +857,81 @@ fun ProductScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+    }
+    if (showStartShiftDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showStartShiftDialog = false
+            },
+            title = {
+                Text("Mulai Shift")
+            },
+            text = {
+                Column {
+                    Text("Masukkan kas awal shift")
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = openingCash,
+                        onValueChange = {
+                            openingCash = it
+                        },
+                        label = {
+                            Text("Kas Awal")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        showStartShiftDialog = false
+                    }
+                ) {
+                    Text("Batal")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                val response = RetrofitClient.api.startShift(
+                                    StartShiftRequest(
+                                        user_id = user.id,
+                                        opening_cash = openingCash.toIntOrNull() ?: 0
+                                    )
+                                )
+
+                                activeShiftId = response.shift_id
+                                shiftMessage = response.message
+                                showStartShiftDialog = false
+                                openingCash = ""
+
+                                appPopup = AppPopup(
+                                    title = "Shift Dimulai",
+                                    message = "Kasir ${user.name} sudah mulai shift",
+                                    icon = "✅"
+                                )
+
+                            } catch (e: Exception) {
+                                shiftMessage = "Gagal mulai shift: ${e.message}"
+
+                                appPopup = AppPopup(
+                                    title = "Gagal Mulai Shift",
+                                    message = e.message ?: "Terjadi kesalahan",
+                                    icon = "❌"
+                                )
+                            }
+                        }
+                    }
+                ) {
+                    Text("Mulai")
+                }
+            }
+        )
     }
 
     AppPopupDialog(

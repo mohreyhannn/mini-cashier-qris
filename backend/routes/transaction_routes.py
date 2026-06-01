@@ -173,6 +173,7 @@ def create_transaction():
     payment_method = data.get("payment_method", "QRIS")
     payment_status = data.get("payment_status", "PENDING")
     user_id = data.get("user_id")
+    shift_id = data.get("shift_id")
     items = data.get("items")
 
     if not items:
@@ -230,22 +231,24 @@ def create_transaction():
 
         cur.execute("""
             INSERT INTO transactions
-            (
-                invoice_code,
-                user_id,
-                total_price,
-                payment_method,
-                payment_status
-            )
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING id
-        """, (
+        (
             invoice_code,
             user_id,
+            shift_id,
             total_price,
             payment_method,
             payment_status
-        ))
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+                invoice_code,
+                user_id,
+                shift_id,
+                total_price,
+                payment_method,
+                payment_status
+            ))
 
         transaction_id = cur.fetchone()[0]
 

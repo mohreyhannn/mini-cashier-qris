@@ -15,6 +15,7 @@ data class TransactionItemRequest(
 data class TransactionRequest(
     val payment_method: String = "QRIS",
     val user_id: Int,
+    val shift_id: Int,
     val items: List<TransactionItemRequest>
 )
 
@@ -136,6 +137,42 @@ data class BestSellerResponse(
     val total_sold: Int
 )
 
+data class StartShiftRequest(
+    val user_id: Int,
+    val opening_cash: Int
+)
+
+data class StartShiftResponse(
+    val message: String,
+    val shift_id: Int,
+    val status: String
+)
+
+data class EndShiftRequest(
+    val closing_cash: Int
+)
+
+data class EndShiftResponse(
+    val message: String,
+    val shift_id: Int,
+    val total_sales: Int,
+    val closing_cash: Int,
+    val status: String
+)
+
+data class ActiveShiftData(
+    val id: Int,
+    val user_id: Int,
+    val start_time: String,
+    val opening_cash: Int,
+    val status: String
+)
+
+data class ActiveShiftResponse(
+    val active: Boolean,
+    val shift: ActiveShiftData?
+)
+
 interface ApiService {
 
     @GET("products/")
@@ -198,4 +235,20 @@ interface ApiService {
 
     @GET("transactions/best-sellers")
     suspend fun getBestSellers(): List<BestSellerResponse>
+
+    @POST("shifts/start")
+    suspend fun startShift(
+        @Body request: StartShiftRequest
+    ): StartShiftResponse
+
+    @GET("shifts/active/{user_id}")
+    suspend fun getActiveShift(
+        @Path("user_id") userId: Int
+    ): ActiveShiftResponse
+
+    @PUT("shifts/end/{shift_id}")
+    suspend fun endShift(
+        @Path("shift_id") shiftId: Int,
+        @Body request: EndShiftRequest
+    ): EndShiftResponse
 }
