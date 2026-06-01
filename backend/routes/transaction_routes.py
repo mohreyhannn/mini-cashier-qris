@@ -110,11 +110,8 @@ def get_monthly_transactions():
             COALESCE(SUM(total_price), 0) AS total_income
         FROM transactions
         WHERE payment_status = 'PAID'
-        GROUP BY TO_CHAR(
-            created_at AT TIME ZONE 'Asia/Jakarta',
-            'YYYY-MM'
-        )
-        ORDER BY month DESC
+        GROUP BY 1
+        ORDER BY 1 DESC
     """)
 
     rows = cur.fetchall()
@@ -139,18 +136,15 @@ def get_yearly_transactions():
     cur = conn.cursor()
 
     cur.execute("""
-    SELECT
-        TO_CHAR(created_at + INTERVAL '7 hours', 'YYYY') AS year,
-        COUNT(*) AS total_transactions,
-        COALESCE(SUM(total_price), 0) AS total_income
-    FROM transactions
-    WHERE payment_status = 'PAID'
-    GROUP BY TO_CHAR(
-        created_at AT TIME ZONE 'Asia/Jakarta',
-        'YYYY'
-    )
-    ORDER BY year DESC
-""")
+        SELECT
+            TO_CHAR(created_at + INTERVAL '7 hours', 'YYYY') AS year,
+            COUNT(*) AS total_transactions,
+            COALESCE(SUM(total_price), 0) AS total_income
+        FROM transactions
+        WHERE payment_status = 'PAID'
+        GROUP BY 1
+        ORDER BY 1 DESC
+    """)
 
     rows = cur.fetchall()
 

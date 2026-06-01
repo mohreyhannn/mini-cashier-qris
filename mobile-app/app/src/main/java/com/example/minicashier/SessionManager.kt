@@ -14,17 +14,20 @@ class SessionManager(
 
     companion object {
 
+        val USER_ID = stringPreferencesKey("user_id")
         val USERNAME = stringPreferencesKey("username")
         val ROLE = stringPreferencesKey("role")
     }
 
     suspend fun saveLogin(
+        userId: Int,
         username: String,
         role: String
     ) {
 
         context.dataStore.edit {
 
+            it[USER_ID] = userId.toString()
             it[USERNAME] = username
             it[ROLE] = role
         }
@@ -34,6 +37,7 @@ class SessionManager(
 
         val pref = context.dataStore.data.first()
 
+        val userId = pref[USER_ID]
         val username = pref[USERNAME]
         val role = pref[ROLE]
 
@@ -43,7 +47,7 @@ class SessionManager(
         ) {
 
             UserData(
-                id = 0,
+                id = userId?.toIntOrNull() ?: 0,
                 username = username,
                 role = role
             )
