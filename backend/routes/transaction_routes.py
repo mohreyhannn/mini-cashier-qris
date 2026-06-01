@@ -12,23 +12,26 @@ def get_transactions():
 
     cur.execute("""
         SELECT
-            t.id,
-            t.invoice_code,
-            t.total_price,
-            t.payment_method,
-            t.payment_status,
-            t.created_at,
-            ti.product_id,
-            p.name,
-            ti.quantity,
-            ti.price,
-            ti.subtotal
-        FROM transactions t
-        LEFT JOIN transaction_items ti
-            ON t.id = ti.transaction_id
-        LEFT JOIN products p
-            ON ti.product_id = p.id
-        ORDER BY t.id DESC
+        t.id,
+        t.invoice_code,
+        t.total_price,
+        t.payment_method,
+        t.payment_status,
+        TO_CHAR(
+            t.created_at + INTERVAL '7 hours',
+            'YYYY-MM-DD HH24:MI:SS'
+        ) AS created_at,
+        ti.product_id,
+        p.name,
+        ti.quantity,
+        ti.price,
+        ti.subtotal
+    FROM transactions t
+    LEFT JOIN transaction_items ti
+        ON t.id = ti.transaction_id
+    LEFT JOIN products p
+        ON ti.product_id = p.id
+    ORDER BY t.id DESC
     """)
 
     rows = cur.fetchall()
@@ -44,7 +47,7 @@ def get_transactions():
                 "total_price": row[2],
                 "payment_method": row[3],
                 "payment_status": row[4],
-                "created_at": str(row[5]),
+                "created_at": row[5],
                 "items": []
             }
 
@@ -70,13 +73,13 @@ def get_daily_transactions():
 
     cur.execute("""
         SELECT
-            DATE(created_at) AS date,
-            COUNT(*) AS total_transactions,
-            COALESCE(SUM(total_price), 0) AS total_income
-        FROM transactions
-        WHERE payment_status = 'PAID'
-        GROUP BY DATE(created_at)
-        ORDER BY date DESC
+        DATE(created_at + INTERVAL '7 hours') AS date,
+        COUNT(*) AS total_transactions,
+        COALESCE(SUM(total_price), 0) AS total_income
+    FROM transactions
+    WHERE payment_status = 'PAID'
+    GROUP BY DATE(created_at + INTERVAL '7 hours')
+    ORDER BY date DESC
     """)
 
     rows = cur.fetchall()
@@ -102,12 +105,15 @@ def get_monthly_transactions():
 
     cur.execute("""
         SELECT
-            TO_CHAR(created_at, 'YYYY-MM') AS month,
+            TO_CHAR(created_at + INTERVAL '7 hours', 'YYYY-MM') AS month,
             COUNT(*) AS total_transactions,
             COALESCE(SUM(total_price), 0) AS total_income
         FROM transactions
         WHERE payment_status = 'PAID'
-        GROUP BY TO_CHAR(created_at, 'YYYY-MM')
+        GROUP BY TO_CHAR(
+            created_at AT TIME ZONE 'Asia/Jakarta',
+            'YYYY-MM'
+        )
         ORDER BY month DESC
     """)
 
@@ -133,15 +139,18 @@ def get_yearly_transactions():
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT
-            TO_CHAR(created_at, 'YYYY') AS year,
-            COUNT(*) AS total_transactions,
-            COALESCE(SUM(total_price), 0) AS total_income
-        FROM transactions
-        WHERE payment_status = 'PAID'
-        GROUP BY TO_CHAR(created_at, 'YYYY')
-        ORDER BY year DESC
-    """)
+    SELECT
+        TO_CHAR(created_at + INTERVAL '7 hours', 'YYYY') AS year,
+        COUNT(*) AS total_transactions,
+        COALESCE(SUM(total_price), 0) AS total_income
+    FROM transactions
+    WHERE payment_status = 'PAID'
+    GROUP BY TO_CHAR(
+        created_at AT TIME ZONE 'Asia/Jakarta',
+        'YYYY'
+    )
+    ORDER BY year DESC
+""")
 
     rows = cur.fetchall()
 
@@ -296,15 +305,18 @@ def best_sellers():
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT
-            p.name,
-            SUM(ti.quantity) AS total_sold
-        FROM transaction_items ti
-        JOIN products p
-            ON ti.product_id = p.id
-        GROUP BY p.name
-        ORDER BY total_sold DESC
-        LIMIT 5
+    SELECT
+        p.name,
+        SUM(ti.quantity) AS total_sold
+    FROM transaction_items ti
+    JOIN products p
+        ON ti.product_id = p.id
+    JOIN transactions t
+        ON ti.transaction_id = t.id
+    WHERE t.payment_status = 'PAID'
+    GROUP BY p.name
+    ORDER BY total_sold DESC
+    LIMIT 5
     """)
 
     rows = cur.fetchall()
@@ -368,8 +380,11 @@ def dashboard_summary():
 
     # Total item terjual
     cur.execute("""
-        SELECT COALESCE(SUM(quantity), 0)
-        FROM transaction_items
+    SELECT COALESCE(SUM(ti.quantity), 0)
+    FROM transaction_items ti
+    JOIN transactions t
+        ON ti.transaction_id = t.id
+    WHERE t.payment_status = 'PAID'
     """)
 
     total_items_sold = cur.fetchone()[0]

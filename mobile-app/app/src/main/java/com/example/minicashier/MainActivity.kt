@@ -22,6 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CardDefaults
@@ -1325,7 +1327,7 @@ fun MainNavigation(
                         label = { Text("Logout") },
                         icon = {
                             Icon(
-                                imageVector = Icons.Default.Home,
+                                imageVector = Icons.Default.Logout,
                                 contentDescription = "Logout"
                             )
                         }
@@ -1340,6 +1342,7 @@ fun MainNavigation(
             startDestination = startRoute,
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
             composable("home") {
@@ -1711,7 +1714,7 @@ fun InsightScreen() {
     var yearlyReports by remember { mutableStateOf<List<YearlyReportResponse>>(emptyList()) }
 
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Harin", "Bulanan", "Tahunan")
+    val tabs = listOf("Harian", "Bulanan", "Tahunan")
 
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -2161,6 +2164,27 @@ fun AdminScreen() {
         )
     }
 }
+
+@Composable
+fun ModernSectionCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(30.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            content = content
+        )
+    }
+}
+
 
 @Composable
 fun BestSellerCard(
@@ -2906,6 +2930,9 @@ fun HistoryScreen(
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var historySearchQuery by remember { mutableStateOf("") }
+    var selectedTransaction by remember {
+        mutableStateOf<TransactionData?>(null)
+    }
 
     fun loadData(tabIndex: Int) {
         scope.launch {
@@ -3020,7 +3047,13 @@ fun HistoryScreen(
                         )
 
                         group.value.forEach { transaction ->
-                            TransactionDetailCard(transaction = transaction)
+                            Box(
+                                modifier = Modifier.clickable {
+                                    selectedTransaction = transaction
+                                }
+                            ) {
+                                TransactionDetailCard(transaction = transaction)
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
@@ -3089,24 +3122,13 @@ fun HistoryScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
+
                 Text(
-                    text = if (user.role == "ADMIN")
-                        "Analytics Center"
-                    else
-                        "Riwayat Transaksi",
+                    text = "Riwayat Transaksi",
                     style = MaterialTheme.typography.headlineMedium
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
-
-                ModernPeriodTabs(
-                    selectedTab = selectedTab,
-                    tabs = tabs,
-                    onTabSelected = {
-                        selectedTab = it
-                        loadData(it)
-                    }
-                )
 
                 OutlinedTextField(
                     value = historySearchQuery,
@@ -3124,12 +3146,16 @@ fun HistoryScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Text(
-                    text = "Riwayat Transaksi",
-                    style = MaterialTheme.typography.headlineSmall
+                ModernPeriodTabs(
+                    selectedTab = selectedTab,
+                    tabs = tabs,
+                    onTabSelected = {
+                        selectedTab = it
+                        loadData(it)
+                    }
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 TransactionListSection(
                     modifier = Modifier
@@ -3138,6 +3164,87 @@ fun HistoryScreen(
                 )
             }
         }
+    }
+    selectedTransaction?.let { transaction ->
+        AlertDialog(
+            onDismissRequest = {
+                selectedTransaction = null
+            },
+            title = {
+                Text("Detail Transaksi")
+            },
+            text = {
+                Column {
+                    Text("Invoice: ${transaction.invoice_code}")
+                    Text("Tanggal: ${formatFullDate(transaction.created_at)}")
+                    Text("Status: ${transaction.payment_status}")
+                    Text("Metode: ${transaction.payment_method}")
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Divider()
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Item Pesanan",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    transaction.items.forEach { item ->
+                        Column(
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Text(item.product_name)
+                            Text(
+                                "${item.quantity} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Divider()
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Total: ${formatRupiah(transaction.total_price)}",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        selectedTransaction = null
+                    }
+                ) {
+                    Text("Tutup")
+                }
+            }
+        )
+    }
+}
+
+fun formatFullDate(dateTime: String): String {
+    return try {
+        val cleanDate = dateTime.take(19)
+
+        val inputFormat = java.text.SimpleDateFormat(
+            "yyyy-MM-dd HH:mm:ss",
+            Locale("id", "ID")
+        )
+
+        val outputFormat = java.text.SimpleDateFormat(
+            "EEEE, dd MMMM yyyy HH:mm",
+            Locale("id", "ID")
+        )
+
+        val date = inputFormat.parse(cleanDate)
+        outputFormat.format(date!!)
+    } catch (e: Exception) {
+        dateTime
     }
 }
 
