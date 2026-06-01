@@ -14,6 +14,7 @@ data class TransactionItemRequest(
 
 data class TransactionRequest(
     val payment_method: String = "QRIS",
+    val user_id: Int,
     val items: List<TransactionItemRequest>
 )
 
@@ -99,6 +100,7 @@ data class TransactionData(
     val payment_method: String,
     val payment_status: String,
     val created_at: String,
+    val cashier_name: String,
     val items: List<TransactionItem>
 )
 

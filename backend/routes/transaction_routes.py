@@ -12,26 +12,29 @@ def get_transactions():
 
     cur.execute("""
         SELECT
-        t.id,
-        t.invoice_code,
-        t.total_price,
-        t.payment_method,
-        t.payment_status,
-        TO_CHAR(
-            t.created_at + INTERVAL '7 hours',
-            'YYYY-MM-DD HH24:MI:SS'
-        ) AS created_at,
-        ti.product_id,
-        p.name,
-        ti.quantity,
-        ti.price,
-        ti.subtotal
-    FROM transactions t
-    LEFT JOIN transaction_items ti
-        ON t.id = ti.transaction_id
-    LEFT JOIN products p
-        ON ti.product_id = p.id
-    ORDER BY t.id DESC
+            t.id,
+            t.invoice_code,
+            t.total_price,
+            t.payment_method,
+            t.payment_status,
+            TO_CHAR(
+                t.created_at + INTERVAL '7 hours',
+                'YYYY-MM-DD HH24:MI:SS'
+            ) AS created_at,
+            COALESCE(u.username, '-') AS cashier_name,
+            ti.product_id,
+            p.name,
+            ti.quantity,    
+            ti.price,
+            ti.subtotal
+        FROM transactions t
+        LEFT JOIN users u
+            ON t.user_id = u.id
+        LEFT JOIN transaction_items ti
+            ON t.id = ti.transaction_id
+        LEFT JOIN products p
+            ON ti.product_id = p.id
+        ORDER BY t.id DESC
     """)
 
     rows = cur.fetchall()
@@ -48,16 +51,17 @@ def get_transactions():
                 "payment_method": row[3],
                 "payment_status": row[4],
                 "created_at": row[5],
+                "cashier_name": row[6],
                 "items": []
             }
 
-        if row[6] is not None:
+        if row[7] is not None:
             transactions_dict[transaction_id]["items"].append({
-                "product_id": row[6],
-                "product_name": row[7],
-                "quantity": row[8],
-                "price": row[9],
-                "subtotal": row[10]
+                "product_id": row[7],
+                "product_name": row[8],
+                "quantity": row[9],
+                "price": row[10],
+                "subtotal": row[11]
             })
 
     cur.close()
@@ -168,6 +172,7 @@ def create_transaction():
 
     payment_method = data.get("payment_method", "QRIS")
     payment_status = data.get("payment_status", "PENDING")
+    user_id = data.get("user_id")
     items = data.get("items")
 
     if not items:
@@ -227,14 +232,16 @@ def create_transaction():
             INSERT INTO transactions
             (
                 invoice_code,
+                user_id,
                 total_price,
                 payment_method,
                 payment_status
             )
-            VALUES (%s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s)
             RETURNING id
         """, (
             invoice_code,
+            user_id,
             total_price,
             payment_method,
             payment_status

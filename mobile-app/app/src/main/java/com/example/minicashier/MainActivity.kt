@@ -315,7 +315,10 @@ fun ProductScreen(
                 }
 
                 val response = RetrofitClient.api.createTransaction(
-                    TransactionRequest(items = transactionItems)
+                    TransactionRequest(
+                        user_id = user.id,
+                        items = transactionItems
+                    )
                 )
 
                 checkoutMessage = response.message
@@ -3178,6 +3181,7 @@ fun HistoryScreen(
                 Column {
                     Text("Invoice: ${transaction.invoice_code}")
                     Text("Tanggal: ${formatFullDate(transaction.created_at)}")
+                    Text("Kasir: ${transaction.cashier_name}")
                     Text("Status: ${transaction.payment_status}")
                     Text("Metode: ${transaction.payment_method}")
 
@@ -3348,6 +3352,14 @@ fun TransactionDetailCard(
 
                         color =
                             MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Kasir: ${transaction.cashier_name}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
