@@ -5,6 +5,7 @@ from routes.category_routes import category_bp
 from routes.product_routes import product_bp
 from routes.transaction_routes import transaction_bp
 from routes.auth_routes import auth_bp
+from routes.shift_routes import shift_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -20,6 +21,8 @@ app.register_blueprint(transaction_bp, url_prefix="/api/transactions")
 
 # AUTH ROUTES
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
+# SHIFT ROUTES
+app.register_blueprint(shift_bp, url_prefix="/api/shifts")
 
 
 @app.route("/", methods=["GET"])
