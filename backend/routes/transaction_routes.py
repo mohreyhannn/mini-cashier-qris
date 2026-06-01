@@ -21,7 +21,7 @@ def get_transactions():
                 t.created_at + INTERVAL '7 hours',
                 'YYYY-MM-DD HH24:MI:SS'
             ) AS created_at,
-            COALESCE(u.username, '-') AS cashier_name,
+            COALESCE(u.name, u.username, '-') AS cashier_name,
             ti.product_id,
             p.name,
             ti.quantity,    

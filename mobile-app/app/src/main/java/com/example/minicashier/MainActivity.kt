@@ -1433,6 +1433,7 @@ fun LoginScreen(
 
                             sessionManager.saveLogin(
                                 userId = response.user.id,
+                                name = response.user.name,
                                 username = response.user.username,
                                 role = response.user.role
                             )

@@ -20,7 +20,7 @@ def login():
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT id, username, role
+        SELECT id, name, username, role
         FROM users
         WHERE username = %s
         AND password = %s
@@ -40,7 +40,8 @@ def login():
         "message": "Login berhasil",
         "user": {
             "id": user[0],
-            "username": user[1],
-            "role": user[2]
+            "name": user[1],
+            "username": user[2],
+            "role": user[3]
         }
     })

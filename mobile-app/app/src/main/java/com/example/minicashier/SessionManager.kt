@@ -13,31 +13,31 @@ class SessionManager(
 ) {
 
     companion object {
-
         val USER_ID = stringPreferencesKey("user_id")
+        val NAME = stringPreferencesKey("name")
         val USERNAME = stringPreferencesKey("username")
         val ROLE = stringPreferencesKey("role")
     }
 
     suspend fun saveLogin(
         userId: Int,
+        name: String,
         username: String,
         role: String
     ) {
-
         context.dataStore.edit {
-
             it[USER_ID] = userId.toString()
+            it[NAME] = name
             it[USERNAME] = username
             it[ROLE] = role
         }
     }
 
     suspend fun getUser(): UserData? {
-
         val pref = context.dataStore.data.first()
 
         val userId = pref[USER_ID]
+        val name = pref[NAME]
         val username = pref[USERNAME]
         val role = pref[ROLE]
 
@@ -45,20 +45,18 @@ class SessionManager(
             username != null &&
             role != null
         ) {
-
             UserData(
                 id = userId?.toIntOrNull() ?: 0,
+                name = name ?: "-",
                 username = username,
                 role = role
             )
-
         } else {
             null
         }
     }
 
     suspend fun logout() {
-
         context.dataStore.edit {
             it.clear()
         }
