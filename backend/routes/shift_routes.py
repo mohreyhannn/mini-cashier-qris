@@ -181,3 +181,42 @@ def shift_history():
     conn.close()
 
     return jsonify(result)
+
+@shift_bp.route("/summary-by-cashier", methods=["GET"])
+def summary_by_cashier():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            COALESCE(u.name, u.username, '-') AS cashier_name,
+            COUNT(DISTINCT s.id) AS total_shifts,
+            COUNT(t.id) AS total_transactions,
+            COALESCE(SUM(t.total_price), 0) AS total_sales
+        FROM users u
+        LEFT JOIN shifts s
+            ON u.id = s.user_id
+        LEFT JOIN transactions t
+            ON s.id = t.shift_id
+            AND t.payment_status = 'PAID'
+        WHERE u.role = 'CASHIER'
+        GROUP BY cashier_name
+        ORDER BY total_sales DESC
+    """)
+
+    rows = cur.fetchall()
+
+    result = []
+
+    for row in rows:
+        result.append({
+            "cashier_name": row[0],
+            "total_shifts": row[1],
+            "total_transactions": row[2],
+            "total_sales": int(row[3])
+        })
+
+    cur.close()
+    conn.close()
+
+    return jsonify(result)

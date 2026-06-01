@@ -173,6 +173,24 @@ data class ActiveShiftResponse(
     val shift: ActiveShiftData?
 )
 
+data class ShiftHistoryData(
+    val id: Int,
+    val cashier_name: String,
+    val start_time: String,
+    val end_time: String?,
+    val opening_cash: Int,
+    val closing_cash: Int,
+    val total_sales: Int,
+    val status: String
+)
+
+data class CashierSummaryData(
+    val cashier_name: String,
+    val total_shifts: Int,
+    val total_transactions: Int,
+    val total_sales: Int
+)
+
 interface ApiService {
 
     @GET("products/")
@@ -251,4 +269,10 @@ interface ApiService {
         @Path("shift_id") shiftId: Int,
         @Body request: EndShiftRequest
     ): EndShiftResponse
+
+    @GET("shifts/history")
+    suspend fun getShiftHistory(): List<ShiftHistoryData>
+
+    @GET("shifts/summary-by-cashier")
+    suspend fun getCashierSummary(): List<CashierSummaryData>
 }

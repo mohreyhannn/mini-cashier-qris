@@ -278,6 +278,8 @@ fun ProductScreen(
     var shiftMessage by remember { mutableStateOf<String?>(null) }
     var openingCash by remember { mutableStateOf("") }
     var showStartShiftDialog by remember { mutableStateOf(false) }
+    var showEndShiftDialog by remember { mutableStateOf(false) }
+    var closingCash by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         try {
@@ -401,9 +403,9 @@ fun ProductScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                if (activeShiftId == null) {
-                    Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
+                if (activeShiftId == null) {
                     Button(
                         onClick = {
                             showStartShiftDialog = true
@@ -412,6 +414,16 @@ fun ProductScreen(
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Text("Mulai Shift")
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = {
+                            showEndShiftDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Tutup Shift")
                     }
                 }
             }
@@ -934,6 +946,80 @@ fun ProductScreen(
         )
     }
 
+    if (showEndShiftDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showEndShiftDialog = false
+            },
+            title = {
+                Text("Tutup Shift")
+            },
+            text = {
+                Column {
+                    Text("Masukkan kas akhir shift")
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = closingCash,
+                        onValueChange = {
+                            closingCash = it
+                        },
+                        label = {
+                            Text("Kas Akhir")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        showEndShiftDialog = false
+                    }
+                ) {
+                    Text("Batal")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                val response = RetrofitClient.api.endShift(
+                                    activeShiftId!!,
+                                    EndShiftRequest(
+                                        closing_cash = closingCash.toIntOrNull() ?: 0
+                                    )
+                                )
+
+                                activeShiftId = null
+                                shiftMessage = response.message
+                                showEndShiftDialog = false
+                                closingCash = ""
+
+                                appPopup = AppPopup(
+                                    title = "Shift Ditutup",
+                                    message = "Total sales: ${formatRupiah(response.total_sales)}",
+                                    icon = "✅"
+                                )
+
+                            } catch (e: Exception) {
+                                appPopup = AppPopup(
+                                    title = "Gagal Tutup Shift",
+                                    message = e.message ?: "Terjadi kesalahan",
+                                    icon = "❌"
+                                )
+                            }
+                        }
+                    }
+                ) {
+                    Text("Tutup")
+                }
+            }
+        )
+    }
+
     AppPopupDialog(
         popup = appPopup,
         onDismiss = {
@@ -1155,6 +1241,92 @@ fun DashboardCard(
                             )
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun ShiftHistoryScreen() {
+    var shifts by remember { mutableStateOf<List<ShiftHistoryData>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        try {
+            shifts = RetrofitClient.api.getShiftHistory()
+        } catch (e: Exception) {
+            error = e.message
+        } finally {
+            loading = false
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Riwayat Shift",
+            style = MaterialTheme.typography.headlineMedium
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        when {
+            loading -> LoadingHistorySkeleton()
+
+            error != null -> Text("Error: $error")
+
+            shifts.isEmpty() -> EmptyState(
+                icon = "🕒",
+                title = "Belum ada shift",
+                message = "Shift kasir akan muncul di sini"
+            )
+
+            else -> {
+                shifts.forEach { shift ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 14.dp),
+                        shape = RoundedCornerShape(26.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                text = shift.cashier_name,
+                                style = MaterialTheme.typography.titleLarge
+                            )
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Text("Status: ${shift.status}")
+                            Text("Mulai: ${formatFullDate(shift.start_time)}")
+                            Text("Selesai: ${shift.end_time?.let { formatFullDate(it) } ?: "-"}")
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Divider()
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Text("Kas Awal: ${formatRupiah(shift.opening_cash)}")
+                            Text("Kas Akhir: ${formatRupiah(shift.closing_cash)}")
+                            Text(
+                                text = "Total Sales: ${formatRupiah(shift.total_sales)}",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(100.dp))
             }
         }
     }
@@ -1392,6 +1564,7 @@ fun MainNavigation(
                         )
                     }
 
+
                     NavigationBarItem(
                         selected = currentRoute == "history",
                         onClick = {
@@ -1413,6 +1586,7 @@ fun MainNavigation(
                         }
                     )
 
+                if (user.role == "ADMIN")
                     NavigationBarItem(
                         selected = currentRoute == "insight",
                         onClick = {
@@ -1452,6 +1626,29 @@ fun MainNavigation(
                                 Icon(
                                     imageVector = Icons.Default.RestaurantMenu,
                                     contentDescription = "Admin"
+                                )
+                            }
+                        )
+                    }
+
+                    if (user.role == "ADMIN") {
+                        NavigationBarItem(
+                            selected = currentRoute == "shift_history",
+                            onClick = {
+                                navController.navigate("shift_history")
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            label = { Text("Shift") },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Default.History,
+                                    contentDescription = "Shift History"
                                 )
                             }
                         )
@@ -1507,6 +1704,10 @@ fun MainNavigation(
 
             composable("admin") {
                 AdminScreen()
+            }
+
+            composable("shift_history") {
+                ShiftHistoryScreen()
             }
         }
     }
