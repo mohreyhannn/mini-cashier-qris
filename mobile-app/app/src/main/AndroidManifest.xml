@@ -4,6 +4,10 @@
 
     <!-- Permission Internet -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!--Print-->
+    <uses-feature
+        android:name="android.hardware.usb.host"
+        android:required="true" />
 
     <application
         android:allowBackup="true"

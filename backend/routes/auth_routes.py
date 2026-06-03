@@ -20,11 +20,12 @@ def login():
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT id, name, username, role
-        FROM users
-        WHERE username = %s
-        AND password = %s
-    """, (username, password))
+    SELECT id, name, username, role
+    FROM users
+    WHERE username = %s
+    AND password = %s
+    AND is_active = TRUE
+""", (username, password))
 
     user = cur.fetchone()
 

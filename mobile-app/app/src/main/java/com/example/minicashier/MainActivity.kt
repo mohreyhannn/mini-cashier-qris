@@ -1749,6 +1749,7 @@ fun MainNavigation(
                         )
                     }
 
+                if (user.role == "ADMIN")
                     NavigationBarItem(
                         selected = currentRoute == "operational",
                         onClick = {
@@ -2163,24 +2164,17 @@ fun CashierSummaryScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            IconButton(
+            BackButtonPremium(
                 onClick = {
                     navController.popBackStack()
                 }
-            ) {
-                Icon(
-                    Icons.Default.ArrowBack,
-                    contentDescription = "Kembali"
-                )
-            }
+            )
 
             Text(
                 text = "Laporan Kasir",
                 style = MaterialTheme.typography.headlineSmall
             )
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         Spacer(modifier = Modifier.height(16.dp))
 
