@@ -165,6 +165,48 @@ def get_yearly_transactions():
 
     return jsonify(result)
 
+@transaction_bp.route("/custom-range", methods=["GET"])
+def get_custom_range_transactions():
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+
+    if not start_date or not end_date:
+        return jsonify({
+            "message": "start_date dan end_date wajib diisi"
+        }), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            DATE(created_at + INTERVAL '7 hours') AS date,
+            COUNT(*) AS total_transactions,
+            COALESCE(SUM(total_price), 0) AS total_income
+        FROM transactions
+        WHERE payment_status = 'PAID'
+        AND DATE(created_at + INTERVAL '7 hours')
+            BETWEEN %s AND %s
+        GROUP BY DATE(created_at + INTERVAL '7 hours')
+        ORDER BY date ASC
+    """, (start_date, end_date))
+
+    rows = cur.fetchall()
+
+    result = []
+
+    for row in rows:
+        result.append({
+            "date": str(row[0]),
+            "total_transactions": row[1],
+            "total_income": int(row[2])
+        })
+
+    cur.close()
+    conn.close()
+
+    return jsonify(result)
+
 
 @transaction_bp.route("/", methods=["POST"])
 def create_transaction():

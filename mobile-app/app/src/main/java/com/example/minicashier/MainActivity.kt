@@ -1710,27 +1710,27 @@ fun MainNavigation(
                         }
                     )
 
-                if (user.role == "ADMIN")
-                    NavigationBarItem(
-                        selected = currentRoute == "insight",
-                        onClick = {
-                            navController.navigate("insight")
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primary,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        label = { Text("Insight") },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Default.BarChart,
-                                contentDescription = "Insight"
-                            )
-                        }
-                    )
+                    if (user.role == "ADMIN")
+                        NavigationBarItem(
+                            selected = currentRoute == "insight",
+                            onClick = {
+                                navController.navigate("insight")
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            label = { Text("Insight") },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Default.BarChart,
+                                    contentDescription = "Insight"
+                                )
+                            }
+                        )
 
                     if (user.role == "ADMIN") {
                         NavigationBarItem(
@@ -2385,7 +2385,12 @@ fun UserManagementScreen(
     var error by remember { mutableStateOf<String?>(null) }
 
     var showCreateDialog by remember { mutableStateOf(false) }
+    var editingUser by remember { mutableStateOf<UserManagementData?>(null) }
+    var resetPasswordUser by remember {
+        mutableStateOf<UserManagementData?>(null)
+    }
     var message by remember { mutableStateOf<String?>(null) }
+
 
     val scope = rememberCoroutineScope()
 
@@ -2470,6 +2475,15 @@ fun UserManagementScreen(
                     users.forEach { user ->
                         UserManagementCard(
                             user = user,
+
+                            onEdit = {
+                                editingUser = user
+                            },
+
+                            onResetPassword = {
+                                resetPasswordUser = user
+                            },
+
                             onToggleActive = {
                                 scope.launch {
                                     try {
@@ -2478,6 +2492,7 @@ fun UserManagementScreen(
 
                                         message = response.message
                                         loadUsers()
+
                                     } catch (e: Exception) {
                                         message = "Gagal ubah status: ${e.message}"
                                     }
@@ -2522,14 +2537,133 @@ fun UserManagementScreen(
             }
         )
     }
+
+    editingUser?.let { user ->
+        EditUserDialog(
+            user = user,
+            onDismiss = {
+                editingUser = null
+            },
+            onUpdate = { name, username, role ->
+                scope.launch {
+                    try {
+                        val response = RetrofitClient.api.updateUser(
+                            user.id,
+                            UpdateUserRequest(
+                                name = name,
+                                username = username,
+                                role = role
+                            )
+                        )
+
+                        message = response.message
+                        editingUser = null
+                        loadUsers()
+
+                    } catch (e: Exception) {
+                        message = "Gagal update user: ${e.message}"
+                    }
+                }
+            }
+        )
+    }
+
+    if (showCreateDialog) {
+        CreateUserDialog(
+            onDismiss = {
+                showCreateDialog = false
+            },
+            onCreate = { name, username, password, role ->
+                scope.launch {
+                    try {
+                        val response = RetrofitClient.api.createUser(
+                            CreateUserRequest(
+                                name = name,
+                                username = username,
+                                password = password,
+                                role = role
+                            )
+                        )
+
+                        message = response.message
+                        showCreateDialog = false
+                        loadUsers()
+
+                    } catch (e: Exception) {
+                        message = "Gagal tambah user: ${e.message}"
+                    }
+                }
+            }
+        )
+    }
+
+    editingUser?.let { user ->
+        EditUserDialog(
+            user = user,
+            onDismiss = {
+                editingUser = null
+            },
+            onUpdate = { name, username, role ->
+                scope.launch {
+                    try {
+                        val response = RetrofitClient.api.updateUser(
+                            user.id,
+                            UpdateUserRequest(
+                                name = name,
+                                username = username,
+                                role = role
+                            )
+                        )
+
+                        message = response.message
+                        editingUser = null
+                        loadUsers()
+
+                    } catch (e: Exception) {
+                        message = "Gagal update user: ${e.message}"
+                    }
+                }
+            }
+        )
+    }
+
+    resetPasswordUser?.let { user ->
+        ResetPasswordDialog(
+            user = user,
+            onDismiss = {
+                resetPasswordUser = null
+            },
+            onReset = { newPassword ->
+                scope.launch {
+                    try {
+                        val response = RetrofitClient.api.resetUserPassword(
+                            user.id,
+                            ResetPasswordRequest(
+                                password = newPassword
+                            )
+                        )
+
+                        message = response.message
+                        resetPasswordUser = null
+
+                    } catch (e: Exception) {
+                        message = "Gagal reset password: ${e.message}"
+                    }
+                }
+            }
+        )
+    }
 }
 
 @Composable
 fun UserManagementCard(
     user: UserManagementData,
-    onToggleActive: () -> Unit
+    onToggleActive: () -> Unit,
+    onEdit: () -> Unit,
+    onResetPassword: () -> Unit
 ) {
     val isActive = user.is_active
+    val isMainAdmin = user.username.lowercase() == "admin"
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -2571,7 +2705,10 @@ fun UserManagementCard(
                     )
 
                     Text(
-                        text = "@${user.username} • ${user.role}",
+                        text = if (isMainAdmin)
+                            "Super Admin"
+                        else
+                            "@${user.username} • ${user.role}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2602,17 +2739,41 @@ fun UserManagementCard(
 
             Spacer(modifier = Modifier.height(14.dp))
 
+            if (!isMainAdmin) {
+                OutlinedButton(
+                    onClick = onEdit,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Text("Edit User")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             OutlinedButton(
-                onClick = onToggleActive,
+                onClick = onResetPassword,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp)
             ) {
-                Text(
-                    if (isActive)
-                        "Nonaktifkan User"
-                    else
-                        "Aktifkan User"
-                )
+                Text("Reset Password")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (!isMainAdmin) {
+                OutlinedButton(
+                    onClick = onToggleActive,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Text(
+                        if (isActive)
+                            "Nonaktifkan User"
+                        else
+                            "Aktifkan User"
+                    )
+                }
             }
         }
     }
@@ -2631,7 +2792,7 @@ fun CreateUserDialog(
     var name by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var selectedRole by remember { mutableStateOf("CASHIER") }
+    var selectedRole by remember { mutableStateOf("KASIR") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -2675,8 +2836,8 @@ fun CreateUserDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     FilterChip(
-                        selected = selectedRole == "CASHIER",
-                        onClick = { selectedRole = "CASHIER" },
+                        selected = selectedRole == "KASIR",
+                        onClick = { selectedRole = "KASIR" },
                         label = { Text("Kasir") }
                     )
 
@@ -2707,6 +2868,138 @@ fun CreateUserDialog(
                 }
             ) {
                 Text("Simpan")
+            }
+        }
+    )
+}
+
+@Composable
+fun EditUserDialog(
+    user: UserManagementData,
+    onDismiss: () -> Unit,
+    onUpdate: (
+        name: String,
+        username: String,
+        role: String
+    ) -> Unit
+) {
+    var name by remember { mutableStateOf(user.name ?: "") }
+    var username by remember { mutableStateOf(user.username) }
+    var selectedRole by remember { mutableStateOf(user.role) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Edit User")
+        },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Nama") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("Username") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text("Role")
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedRole == "KASIR",
+                        onClick = { selectedRole = "KASIR" },
+                        label = { Text("Kasir") }
+                    )
+
+                    FilterChip(
+                        selected = selectedRole == "ADMIN",
+                        onClick = { selectedRole = "ADMIN" },
+                        label = { Text("Admin") }
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Batal")
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onUpdate(
+                        name,
+                        username,
+                        selectedRole
+                    )
+                }
+            ) {
+                Text("Simpan")
+            }
+        }
+    )
+}
+
+@Composable
+fun ResetPasswordDialog(
+    user: UserManagementData,
+    onDismiss: () -> Unit,
+    onReset: (String) -> Unit
+) {
+    var password by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Reset Password")
+        },
+        text = {
+            Column {
+                Text("User: ${user.name ?: user.username}")
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                    },
+                    label = {
+                        Text("Password Baru")
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss
+            ) {
+                Text("Batal")
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onReset(password)
+                },
+                enabled = password.isNotBlank()
+            ) {
+                Text("Reset")
             }
         }
     )

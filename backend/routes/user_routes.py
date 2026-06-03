@@ -89,6 +89,18 @@ def update_user(user_id):
     cur = conn.cursor()
 
     cur.execute("""
+        SELECT username
+        FROM users
+        WHERE id = %s
+    """, (user_id,))
+
+    existing_user = cur.fetchone()
+
+    if existing_user and existing_user[0] == "admin":
+        role = "ADMIN"
+        username = "admin"
+
+    cur.execute("""
         UPDATE users
         SET name = %s,
             username = %s,
@@ -155,6 +167,21 @@ def reset_password(user_id):
 def toggle_active_user(user_id):
     conn = get_db_connection()
     cur = conn.cursor()
+
+    cur.execute("""
+        SELECT username
+        FROM users
+        WHERE id = %s
+    """, (user_id,))
+
+    existing_user = cur.fetchone()
+
+    if existing_user and existing_user[0] == "admin":
+        cur.close()
+        conn.close()
+        return jsonify({
+            "message": "Admin utama tidak dapat dinonaktifkan"
+        }), 403
 
     cur.execute("""
         UPDATE users
