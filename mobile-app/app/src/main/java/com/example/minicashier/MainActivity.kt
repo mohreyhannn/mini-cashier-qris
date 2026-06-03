@@ -1273,48 +1273,54 @@ fun ShiftHistoryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            BackButtonPremium(
-                onClick = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        Text(
-            text = "Riwayat Shift",
-            style = MaterialTheme.typography.headlineMedium
+        BackButtonPremium(
+            onClick = {
+                navController.popBackStack()
+            }
         )
 
-        Text(
-            text = "Pantau aktivitas buka dan tutup shift kasir",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Spacer(modifier = Modifier.height(16.dp))
 
-        Spacer(modifier = Modifier.height(18.dp))
-
-        when {
-            loading -> LoadingHistorySkeleton()
-
-            error != null -> Text("Error: $error")
-
-            shifts.isEmpty() -> EmptyState(
-                icon = "🕒",
-                title = "Belum ada shift",
-                message = "Shift kasir akan muncul di sini"
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Text(
+                text = "Riwayat Shift",
+                style = MaterialTheme.typography.headlineMedium
             )
 
-            else -> {
-                shifts.forEach { shift ->
-                    ShiftHistoryCard(shift)
-                    Spacer(modifier = Modifier.height(14.dp))
-                }
+            Text(
+                text = "Pantau aktivitas buka dan tutup shift kasir",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-                Spacer(modifier = Modifier.height(100.dp))
+            Spacer(modifier = Modifier.height(18.dp))
+
+            when {
+                loading -> LoadingHistorySkeleton()
+
+                error != null -> Text("Error: $error")
+
+                shifts.isEmpty() -> EmptyState(
+                    icon = "🕒",
+                    title = "Belum ada shift",
+                    message = "Shift kasir akan muncul di sini"
+                )
+
+                else -> {
+                    shifts.forEach { shift ->
+                        ShiftHistoryCard(shift)
+                        Spacer(modifier = Modifier.height(14.dp))
+                    }
+
+                    Spacer(modifier = Modifier.height(100.dp))
+                }
             }
         }
     }
@@ -1836,6 +1842,10 @@ fun MainNavigation(
             composable("cashier_summary") {
                 CashierSummaryScreen(navController)
             }
+
+            composable("user_management") {
+                UserManagementScreen(navController)
+            }
         }
     }
 }
@@ -2159,47 +2169,57 @@ fun CashierSummaryScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-
-            BackButtonPremium(
-                onClick = {
-                    navController.popBackStack()
-                }
-            )
-
-            Text(
-                text = "Laporan Kasir",
-                style = MaterialTheme.typography.headlineSmall
-            )
-        }
+        BackButtonPremium(
+            onClick = {
+                navController.popBackStack()
+            }
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        when {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Text(
+                text = "Laporan Kasir",
+                style = MaterialTheme.typography.headlineMedium
+            )
 
-            loading -> {
-                CircularProgressIndicator()
-            }
+            Text(
+                text = "Pantau performa kasir dan total penjualan",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-            error != null -> {
-                Text("Error: $error")
-            }
+            Spacer(modifier = Modifier.height(18.dp))
 
-            summaries.isEmpty() -> {
-                Text("Belum ada data kasir")
-            }
+            when {
+                loading -> {
+                    CircularProgressIndicator()
+                }
 
-            else -> {
+                error != null -> {
+                    Text("Error: $error")
+                }
 
-                LazyColumn {
+                summaries.isEmpty() -> {
+                    EmptyState(
+                        icon = "👥",
+                        title = "Belum ada data kasir",
+                        message = "Data akan muncul setelah kasir memiliki shift/transaksi"
+                    )
+                }
 
-                    items(summaries) { cashier ->
-
+                else -> {
+                    summaries.forEach { cashier ->
                         CashierSummaryCard(cashier = cashier)
+                        Spacer(modifier = Modifier.height(14.dp))
                     }
+
+                    Spacer(modifier = Modifier.height(100.dp))
                 }
             }
         }
@@ -2342,7 +2362,354 @@ fun OperationalScreen(
                 navController.navigate("shift_history")
             }
         )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OperationalMenuCard(
+            icon = "👥",
+            title = "Manajemen User",
+            subtitle = "Tambah, edit, dan nonaktifkan akun kasir",
+            onClick = {
+                navController.navigate("user_management")
+            }
+        )
     }
+}
+
+@Composable
+fun UserManagementScreen(
+    navController: NavController
+) {
+    var users by remember { mutableStateOf<List<UserManagementData>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    val scope = rememberCoroutineScope()
+
+    suspend fun loadUsers() {
+        users = RetrofitClient.api.getUsers()
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            loadUsers()
+        } catch (e: Exception) {
+            error = e.message
+        } finally {
+            loading = false
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        BackButtonPremium(
+            onClick = {
+                navController.popBackStack()
+            }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Text(
+                text = "Manajemen User",
+                style = MaterialTheme.typography.headlineMedium
+            )
+
+            Text(
+                text = "Kelola akun admin dan kasir",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Button(
+                onClick = {
+                    showCreateDialog = true
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Text("+ Tambah User")
+            }
+
+            message?.let {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            when {
+                loading -> LoadingHistorySkeleton()
+
+                error != null -> Text("Error: $error")
+
+                users.isEmpty() -> EmptyState(
+                    icon = "👥",
+                    title = "Belum ada user",
+                    message = "User baru akan muncul di sini"
+                )
+
+                else -> {
+                    users.forEach { user ->
+                        UserManagementCard(
+                            user = user,
+                            onToggleActive = {
+                                scope.launch {
+                                    try {
+                                        val response =
+                                            RetrofitClient.api.toggleUserActive(user.id)
+
+                                        message = response.message
+                                        loadUsers()
+                                    } catch (e: Exception) {
+                                        message = "Gagal ubah status: ${e.message}"
+                                    }
+                                }
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+                    }
+
+                    Spacer(modifier = Modifier.height(100.dp))
+                }
+            }
+        }
+    }
+
+    if (showCreateDialog) {
+        CreateUserDialog(
+            onDismiss = {
+                showCreateDialog = false
+            },
+            onCreate = { name, username, password, role ->
+                scope.launch {
+                    try {
+                        val response = RetrofitClient.api.createUser(
+                            CreateUserRequest(
+                                name = name,
+                                username = username,
+                                password = password,
+                                role = role
+                            )
+                        )
+
+                        message = response.message
+                        showCreateDialog = false
+                        loadUsers()
+
+                    } catch (e: Exception) {
+                        message = "Gagal tambah user: ${e.message}"
+                    }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun UserManagementCard(
+    user: UserManagementData,
+    onToggleActive: () -> Unit
+) {
+    val isActive = user.is_active
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(54.dp),
+                    shape = CircleShape,
+                    color = if (isActive)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isActive) "👤" else "🚫",
+                            fontSize = 24.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = user.name ?: user.username,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+
+                    Text(
+                        text = "@${user.username} • ${user.role}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = if (isActive)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.error
+                ) {
+                    Text(
+                        text = if (isActive) "ACTIVE" else "OFF",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        color = if (isActive)
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.onError,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Divider()
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            OutlinedButton(
+                onClick = onToggleActive,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Text(
+                    if (isActive)
+                        "Nonaktifkan User"
+                    else
+                        "Aktifkan User"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun CreateUserDialog(
+    onDismiss: () -> Unit,
+    onCreate: (
+        name: String,
+        username: String,
+        password: String,
+        role: String
+    ) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var selectedRole by remember { mutableStateOf("CASHIER") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Tambah User")
+        },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Nama") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("Username") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text("Role")
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedRole == "CASHIER",
+                        onClick = { selectedRole = "CASHIER" },
+                        label = { Text("Kasir") }
+                    )
+
+                    FilterChip(
+                        selected = selectedRole == "ADMIN",
+                        onClick = { selectedRole = "ADMIN" },
+                        label = { Text("Admin") }
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss
+            ) {
+                Text("Batal")
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onCreate(
+                        name,
+                        username,
+                        password,
+                        selectedRole
+                    )
+                }
+            ) {
+                Text("Simpan")
+            }
+        }
+    )
 }
 
 @Composable

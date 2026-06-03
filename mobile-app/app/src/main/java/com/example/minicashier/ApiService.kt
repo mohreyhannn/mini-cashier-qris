@@ -191,6 +191,42 @@ data class CashierSummaryData(
     val total_sales: Int
 )
 
+data class UserManagementData(
+    val id: Int,
+    val name: String?,
+    val username: String,
+    val role: String,
+    val is_active: Boolean,
+    val created_at: String
+)
+
+data class CreateUserRequest(
+    val name: String,
+    val username: String,
+    val password: String,
+    val role: String
+)
+
+data class CreateUserResponse(
+    val message: String,
+    val user_id: Int
+)
+
+data class UpdateUserRequest(
+    val name: String,
+    val username: String,
+    val role: String
+)
+
+data class UserActionResponse(
+    val message: String,
+    val is_active: Boolean? = null
+)
+
+data class ResetPasswordRequest(
+    val password: String
+)
+
 interface ApiService {
 
     @GET("products/")
@@ -275,4 +311,29 @@ interface ApiService {
 
     @GET("shifts/summary-by-cashier")
     suspend fun getCashierSummary(): List<CashierSummaryData>
+
+    @GET("users/")
+    suspend fun getUsers(): List<UserManagementData>
+
+    @POST("users/")
+    suspend fun createUser(
+        @Body request: CreateUserRequest
+    ): CreateUserResponse
+
+    @PUT("users/{id}")
+    suspend fun updateUser(
+        @Path("id") id: Int,
+        @Body request: UpdateUserRequest
+    ): UserActionResponse
+
+    @PUT("users/{id}/reset-password")
+    suspend fun resetUserPassword(
+        @Path("id") id: Int,
+        @Body request: ResetPasswordRequest
+    ): UserActionResponse
+
+    @PUT("users/{id}/toggle-active")
+    suspend fun toggleUserActive(
+        @Path("id") id: Int
+    ): UserActionResponse
 }

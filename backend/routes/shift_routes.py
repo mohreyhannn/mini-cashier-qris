@@ -191,16 +191,19 @@ def summary_by_cashier():
         SELECT
             COALESCE(u.name, u.username, '-') AS cashier_name,
             COUNT(DISTINCT s.id) AS total_shifts,
-            COUNT(t.id) AS total_transactions,
-            COALESCE(SUM(t.total_price), 0) AS total_sales
-        FROM users u
-        LEFT JOIN shifts s
-            ON u.id = s.user_id
+            COUNT(DISTINCT t.id) AS total_transactions,
+            COALESCE(SUM(
+                CASE 
+                    WHEN t.payment_status = 'PAID' THEN t.total_price
+                    ELSE 0
+                END
+            ), 0) AS total_sales
+        FROM shifts s
+        JOIN users u
+            ON s.user_id = u.id
         LEFT JOIN transactions t
             ON s.id = t.shift_id
-            AND t.payment_status = 'PAID'
-        WHERE u.role = 'CASHIER'
-        GROUP BY cashier_name
+        GROUP BY u.id, cashier_name
         ORDER BY total_sales DESC
     """)
 
