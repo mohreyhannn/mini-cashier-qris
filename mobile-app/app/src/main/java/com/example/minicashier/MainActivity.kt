@@ -65,6 +65,7 @@ import com.example.minicashier.ui.theme.MiniCashierTheme
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.launch
+import retrofit2.http.Query
 import java.text.NumberFormat
 import java.util.Locale
 import java.io.File
@@ -3120,7 +3121,9 @@ fun ModernPeriodTabs(
 
                 Button(
                     onClick = { onTabSelected(index) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                    .weight(1f)
+                    .height(38.dp),
                     shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (selected)
@@ -3136,7 +3139,11 @@ fun ModernPeriodTabs(
                         defaultElevation = if (selected) 4.dp else 0.dp
                     )
                 ) {
-                    Text(title)
+                    Text(
+                        text = title,
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
                 }
             }
         }
@@ -3152,8 +3159,14 @@ fun InsightScreen() {
     var monthlyReports by remember { mutableStateOf<List<MonthlyReportResponse>>(emptyList()) }
     var yearlyReports by remember { mutableStateOf<List<YearlyReportResponse>>(emptyList()) }
 
+    var customReports by remember { mutableStateOf<List<CustomRangeResponse>>(emptyList()) }
+    var startDate by remember { mutableStateOf("") }
+    var endDate by remember { mutableStateOf("") }
+
+    var transactions by remember { mutableStateOf<List<TransactionData>>(emptyList()) }
+
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Harian", "Bulanan", "Tahunan")
+    val tabs = listOf("Hari", "Bulan", "Tahun", "Custom")
 
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -4017,6 +4030,107 @@ fun saveReceiptPdf(
     pdfDocument.close()
 }
 
+fun saveTransactionReceiptPdf(
+    transaction: TransactionData
+): File {
+    val pdfDocument = PdfDocument()
+    val pageInfo = PdfDocument.PageInfo.Builder(320, 700, 1).create()
+    val page = pdfDocument.startPage(pageInfo)
+
+    val canvas = page.canvas
+    val paint = Paint()
+
+    var y = 40f
+
+    paint.textSize = 18f
+    paint.isFakeBoldText = true
+    canvas.drawText("MINI CASHIER QRIS", 40f, y, paint)
+
+    y += 28f
+
+    paint.textSize = 12f
+    paint.isFakeBoldText = false
+    canvas.drawText("Struk Pembayaran", 40f, y, paint)
+
+    y += 24f
+    canvas.drawText("Invoice: ${transaction.invoice_code}", 20f, y, paint)
+
+    y += 18f
+    canvas.drawText("Kasir: ${transaction.cashier_name}", 20f, y, paint)
+
+    y += 18f
+    canvas.drawText("Tanggal: ${formatFullDate(transaction.created_at)}", 20f, y, paint)
+
+    y += 18f
+    canvas.drawText("Metode: ${transaction.payment_method}", 20f, y, paint)
+
+    y += 18f
+    canvas.drawText("Status: ${transaction.payment_status}", 20f, y, paint)
+
+    y += 18f
+    canvas.drawText("--------------------------------", 20f, y, paint)
+
+    y += 20f
+
+    transaction.items.forEach { item ->
+        paint.isFakeBoldText = true
+        paint.textSize = 12f
+        canvas.drawText(item.product_name, 20f, y, paint)
+
+        y += 16f
+
+        paint.isFakeBoldText = false
+        canvas.drawText(
+            "${item.quantity} x ${formatRupiah(item.price)}",
+            20f,
+            y,
+            paint
+        )
+
+        canvas.drawText(
+            formatRupiah(item.subtotal),
+            210f,
+            y,
+            paint
+        )
+
+        y += 22f
+    }
+
+    y += 6f
+    canvas.drawText("--------------------------------", 20f, y, paint)
+
+    y += 26f
+
+    paint.isFakeBoldText = true
+    paint.textSize = 16f
+    canvas.drawText("TOTAL", 20f, y, paint)
+    canvas.drawText(formatRupiah(transaction.total_price), 180f, y, paint)
+
+    y += 34f
+
+    paint.isFakeBoldText = false
+    paint.textSize = 11f
+    canvas.drawText("Terima kasih sudah berbelanja", 45f, y, paint)
+
+    pdfDocument.finishPage(page)
+
+    val downloadsDir =
+        Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS
+        )
+
+    val file = File(
+        downloadsDir,
+        "struk_${transaction.invoice_code}.pdf"
+    )
+
+    pdfDocument.writeTo(FileOutputStream(file))
+    pdfDocument.close()
+
+    return file
+}
+
 @Composable
 fun PaymentCard(
     invoiceCode: String?,
@@ -4358,20 +4472,20 @@ fun HistoryScreen(
     val scope = rememberCoroutineScope()
 
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Harian", "Bulanan", "Tahunan")
+    val tabs = listOf("Hari", "Bulan", "Tahun", "Custom")
 
     var dailyReports by remember { mutableStateOf<List<DailyReportResponse>>(emptyList()) }
     var monthlyReports by remember { mutableStateOf<List<MonthlyReportResponse>>(emptyList()) }
     var yearlyReports by remember { mutableStateOf<List<YearlyReportResponse>>(emptyList()) }
+    var customReports by remember { mutableStateOf<List<CustomRangeResponse>>(emptyList()) }
+
+    var startDate by remember { mutableStateOf("") }
+    var endDate by remember { mutableStateOf("") }
 
     var transactions by remember { mutableStateOf<List<TransactionData>>(emptyList()) }
-
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var historySearchQuery by remember { mutableStateOf("") }
-    var selectedTransaction by remember {
-        mutableStateOf<TransactionData?>(null)
-    }
+    var selectedTransaction by remember { mutableStateOf<TransactionData?>(null) }
 
     fun loadData(tabIndex: Int) {
         scope.launch {
@@ -4381,11 +4495,14 @@ fun HistoryScreen(
             try {
                 transactions = RetrofitClient.api.getTransactions()
 
-                when (tabIndex) {
-                    0 -> dailyReports = RetrofitClient.api.getDailyReports()
-                    1 -> monthlyReports = RetrofitClient.api.getMonthlyReports()
-                    2 -> yearlyReports = RetrofitClient.api.getYearlyReports()
+                if (tabIndex == 0) {
+                    dailyReports = RetrofitClient.api.getDailyReports()
+                } else if (tabIndex == 1) {
+                    monthlyReports = RetrofitClient.api.getMonthlyReports()
+                } else if (tabIndex == 2) {
+                    yearlyReports = RetrofitClient.api.getYearlyReports()
                 }
+
             } catch (e: Exception) {
                 error = e.message
             } finally {
@@ -4394,11 +4511,65 @@ fun HistoryScreen(
         }
     }
 
+    fun loadCustomRange() {
+        if (startDate.isBlank() || endDate.isBlank()) {
+            error = "Tanggal mulai dan tanggal akhir wajib diisi"
+            return
+        }
+
+        scope.launch {
+            loading = true
+            error = null
+
+            try {
+                transactions = RetrofitClient.api.getTransactions()
+                customReports = RetrofitClient.api.getCustomRangeReport(
+                    startDate,
+                    endDate
+                )
+            } catch (e: Exception) {
+                error = e.message
+            } finally {
+                loading = false
+            }
+        }
+    }
+
+    fun filteredTransactions(): List<TransactionData> {
+        return transactions
+            .filter { transaction ->
+                transaction.payment_status == "PAID"
+            }
+            .filter { transaction ->
+                val trxDate = transaction.created_at.take(10)
+
+                if (selectedTab == 0) {
+                    dailyReports.any { report ->
+                        trxDate == report.date
+                    }
+                } else if (selectedTab == 1) {
+                    monthlyReports.any { report ->
+                        trxDate.startsWith(report.month)
+                    }
+                } else if (selectedTab == 2) {
+                    yearlyReports.any { report ->
+                        trxDate.startsWith(report.year.toString())
+                    }
+                } else {
+                    startDate.isNotBlank() &&
+                            endDate.isNotBlank() &&
+                            trxDate >= startDate &&
+                            trxDate <= endDate
+                }
+            }
+    }
+
     fun currentChartData(): List<Pair<String, Int>> {
         return when (selectedTab) {
             0 -> dailyReports.map { it.date to it.total_income }
             1 -> monthlyReports.map { it.month to it.total_income }
-            else -> yearlyReports.map { it.year.toString() to it.total_income }
+            2 -> yearlyReports.map { it.year.toString() to it.total_income }
+            else -> customReports.map { it.date to it.total_income }
         }
     }
 
@@ -4406,41 +4577,9 @@ fun HistoryScreen(
         return when (selectedTab) {
             0 -> "Grafik Income Harian"
             1 -> "Grafik Income Bulanan"
-            else -> "Grafik Income Tahunan"
+            2 -> "Grafik Income Tahunan"
+            else -> "Grafik Income Custom"
         }
-    }
-
-    fun filteredTransactions(): List<TransactionData> {
-        return transactions
-            .filter { it.payment_status == "PAID" }
-            .filter { transaction ->
-                when (selectedTab) {
-                    0 -> dailyReports.any { report ->
-                        transaction.created_at.startsWith(report.date)
-                    }
-
-                    1 -> monthlyReports.any { report ->
-                        transaction.created_at.startsWith(report.month)
-                    }
-
-                    else -> yearlyReports.any { report ->
-                        transaction.created_at.startsWith(report.year.toString())
-                    }
-                }
-            }
-            .filter { transaction ->
-                val query = historySearchQuery.trim()
-
-                if (query.isBlank()) {
-                    true
-                } else {
-                    transaction.invoice_code.contains(query, ignoreCase = true) ||
-                            transaction.created_at.contains(query, ignoreCase = true) ||
-                            transaction.items.any { item ->
-                                item.product_name.contains(query, ignoreCase = true)
-                            }
-                }
-            }
     }
 
     @Composable
@@ -4529,25 +4668,47 @@ fun HistoryScreen(
                     tabs = tabs,
                     onTabSelected = {
                         selectedTab = it
-                        loadData(it)
+                        if (it != 3) {
+                            loadData(it)
+                        }
                     }
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                if (selectedTab == 3) {
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                OutlinedTextField(
-                    value = historySearchQuery,
-                    onValueChange = { historySearchQuery = it },
-                    label = { Text("Cari invoice / produk...") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search"
-                        )
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    OutlinedTextField(
+                        value = startDate,
+                        onValueChange = { startDate = it },
+                        label = { Text("Tanggal Mulai") },
+                        placeholder = { Text("2026-06-01") },
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = endDate,
+                        onValueChange = { endDate = it },
+                        label = { Text("Tanggal Akhir") },
+                        placeholder = { Text("2026-06-30") },
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = {
+                            loadCustomRange()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Text("Tampilkan Data")
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -4569,20 +4730,6 @@ fun HistoryScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                OutlinedTextField(
-                    value = historySearchQuery,
-                    onValueChange = { historySearchQuery = it },
-                    label = { Text("Cari invoice / produk...") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search"
-                        )
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
                 Spacer(modifier = Modifier.height(12.dp))
 
                 ModernPeriodTabs(
@@ -4590,9 +4737,47 @@ fun HistoryScreen(
                     tabs = tabs,
                     onTabSelected = {
                         selectedTab = it
-                        loadData(it)
+                        if (it != 3) {
+                            loadData(it)
+                        }
                     }
                 )
+
+                if (selectedTab == 3) {
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = startDate,
+                        onValueChange = { startDate = it },
+                        label = { Text("Tanggal Mulai") },
+                        placeholder = { Text("2026-06-01") },
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = endDate,
+                        onValueChange = { endDate = it },
+                        label = { Text("Tanggal Akhir") },
+                        placeholder = { Text("2026-06-30") },
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = {
+                            loadCustomRange()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Text("Tampilkan Data")
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -4655,12 +4840,28 @@ fun HistoryScreen(
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        selectedTransaction = null
+                Row {
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                saveTransactionReceiptPdf(transaction)
+                            } catch (e: Exception) {
+                                error = "Gagal simpan PDF: ${e.message}"
+                            }
+                        }
+                    ) {
+                        Text("Simpan PDF")
                     }
-                ) {
-                    Text("Tutup")
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            selectedTransaction = null
+                        }
+                    ) {
+                        Text("Tutup")
+                    }
                 }
             }
         )

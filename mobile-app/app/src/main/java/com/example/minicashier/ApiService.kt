@@ -6,6 +6,7 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 data class TransactionItemRequest(
     val product_id: Int,
@@ -227,6 +228,12 @@ data class ResetPasswordRequest(
     val password: String
 )
 
+data class CustomRangeResponse(
+    val date: String,
+    val total_transactions: Int,
+    val total_income: Int
+)
+
 interface ApiService {
 
     @GET("products/")
@@ -336,4 +343,10 @@ interface ApiService {
     suspend fun toggleUserActive(
         @Path("id") id: Int
     ): UserActionResponse
+
+    @GET("transactions/custom-range")
+    suspend fun getCustomRangeReport(
+        @Query("start_date") startDate: String,
+        @Query("end_date") endDate: String
+    ): List<CustomRangeResponse>
 }
